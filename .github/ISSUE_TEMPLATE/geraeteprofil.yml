@@ -1,0 +1,44 @@
+name: Geräteprofil einreichen
+description: Ein Audio-Interface funktioniert mit GuitarStar – teile die Einstellungen, damit andere es direkt auswählen können.
+title: "Geräteprofil: "
+labels: ["geräteprofil"]
+body:
+  - type: input
+    id: device
+    attributes:
+      label: Gerät
+      description: Hersteller, Modell und ggf. Generation
+      placeholder: Focusrite Scarlett Solo (3. Gen)
+    validations:
+      required: true
+  - type: input
+    id: driver
+    attributes:
+      label: ASIO-Treiber
+      description: Name, wie er in GuitarStar unter „Audio“ angezeigt wird
+      placeholder: Focusrite USB ASIO
+    validations:
+      required: true
+  - type: input
+    id: input
+    attributes:
+      label: Eingangskanal der Gitarre
+      placeholder: "1"
+    validations:
+      required: true
+  - type: input
+    id: output
+    attributes:
+      label: Erster Ausgangskanal
+      placeholder: "0"
+  - type: input
+    id: buffer
+    attributes:
+      label: Puffergröße
+      description: "vom Treiber / vom Spiel / fest: Wert"
+      placeholder: "fest: 48"
+  - type: textarea
+    id: notes
+    attributes:
+      label: Hinweise
+      description: Was musstest du beachten? Knacken, Lautstärke, Treibereinstellungen …

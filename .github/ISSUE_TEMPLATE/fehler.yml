@@ -1,0 +1,26 @@
+name: Fehler melden
+description: Etwas funktioniert nicht wie erwartet.
+labels: ["bug"]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: Was ist passiert?
+      description: Was hast du gemacht, was hast du erwartet, was ist stattdessen passiert?
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: GuitarStar-Version / Commit
+  - type: input
+    id: system
+    attributes:
+      label: System
+      placeholder: Windows 11, 125 % Skalierung, Focusrite Scarlett Solo
+  - type: textarea
+    id: logs
+    attributes:
+      label: Protokolle
+      description: Falls vorhanden, aus dem Spielordner `RS_ASIO-log.txt`, `GuitarStar-window.log`, `Videodump.txt`
+      render: text
