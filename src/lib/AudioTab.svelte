@@ -200,6 +200,13 @@
     </label>
   </section>
 
+  {#if ov.settings?.exclusive_mode && ov.state.audio && ov.state.audio.output_mode !== "asio"}
+    <div class="hint">
+      Rocksmith beansprucht das Windows-Ausgabegerät gerade exklusiv. Dann hörst du in Discord niemanden, und Discord
+      kann den Spielton nicht übertragen. Klick auf „Übernehmen“, um das zu beheben.
+    </div>
+  {/if}
+
   <div class="row">
     <button class="primary" disabled={busy || !form.driver} onclick={save}>Übernehmen</button>
     <span class="muted">
