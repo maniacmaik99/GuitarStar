@@ -13,6 +13,7 @@ Rocksmith 2014 läuft auf aktueller Hardware oft nur mit Bastelei: Audio-Interfa
 - **Skalierungs-Fix:** Rocksmith kennt keine Windows-Skalierung; bei 125 % oder mehr ragt das Bild über den Monitor. GuitarStar bringt eine eigene, winzige `dinput8.dll` mit, die das Spiel DPI-aware macht – im Fenster, im Vollbild und im exklusiven Vollbild.
 - **Kein Minimieren bei Fokusverlust** (optional): Im Vollbild-Fenster bleibt das Spiel sichtbar, wenn du auf einen zweiten Monitor klickst.
 - **Eigene Songs (CDLC):** CustomsForge im eingebauten Fenster – heruntergeladene Songs werden automatisch installiert. Dazu Drag & Drop für `.psarc`/`.zip`, Suche, Aktivieren/Deaktivieren und Löschen. GuitarStar arbeitet nur im Unterordner `dlc\GuitarStar`; die offiziellen Songs bleiben unberührt. Der CDLC-Enabler von CustomsForge lässt sich direkt aus der App installieren.
+  Die Werbung auf CustomsForge wird von CustomsForge geschaltet und finanziert die Seite mit; sie lässt sich unter „Einstellungen“ ausblenden (standardmäßig aus).
 - **Spieleinstellungen:** Auflösung, Anzeigemodus, Latenzpuffer, exklusiver Audiomodus.
 - **Komponenten mit Updates und Rollback:** Versionen kommen direkt von den offiziellen GitHub-Releases (mit Prüfsummen-Check), jede installierte Version bleibt offline verfügbar.
 - **Verlauf:** Vor jeder Änderung werden die betroffenen Dateien gesichert. Jede Änderung lässt sich zurücknehmen, auch komplett bis zum Originalzustand.

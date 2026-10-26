@@ -107,6 +107,7 @@ export interface AppState {
   audio: AudioConfig | null;
   dpi_override: boolean;
   keep_visible: boolean;
+  hide_ads: boolean;
 }
 
 export interface Overview {
@@ -186,6 +187,7 @@ export const api = {
   openCustomsforge: (b: Bounds) => invoke<void>("open_customsforge", { ...b }),
   customsforgeBounds: (b: Bounds) => invoke<void>("customsforge_bounds", { ...b }),
   hideCustomsforge: () => invoke<void>("hide_customsforge"),
+  setHideAds: (enabled: boolean) => invoke<void>("set_hide_ads", { enabled }),
   customsforgeNavigate: (action: "back" | "forward" | "reload" | "home") =>
     invoke<void>("customsforge_navigate", { action }),
 };

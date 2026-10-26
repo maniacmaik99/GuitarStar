@@ -7,15 +7,17 @@
   import ComponentsTab from "$lib/ComponentsTab.svelte";
   import SongsTab from "$lib/SongsTab.svelte";
   import BrowserLayer from "$lib/BrowserLayer.svelte";
+  import SettingsTab from "$lib/SettingsTab.svelte";
   import HistoryTab from "$lib/HistoryTab.svelte";
 
-  type Tab = "game" | "audio" | "songs" | "components" | "history";
+  type Tab = "game" | "audio" | "songs" | "components" | "history" | "settings";
   const tabs: { id: Tab; label: string }[] = [
     { id: "game", label: "Spiel" },
     { id: "audio", label: "Audio" },
     { id: "songs", label: "Songs" },
     { id: "components", label: "Komponenten" },
     { id: "history", label: "Verlauf" },
+    { id: "settings", label: "Einstellungen" },
   ];
 
   let ov = $state<Overview | null>(null);
@@ -124,8 +126,10 @@
         <SongsTab {ov} {run} busy={!!busy} openBrowser={() => (browserOpen = true)} />
       {:else if tab === "components"}
         <ComponentsTab {ov} {run} busy={!!busy} />
-      {:else}
+      {:else if tab === "history"}
         <HistoryTab {ov} {run} busy={!!busy} />
+      {:else}
+        <SettingsTab {ov} {run} busy={!!busy} />
       {/if}
     </main>
   {/if}

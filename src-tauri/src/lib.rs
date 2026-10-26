@@ -37,6 +37,7 @@ pub fn run() {
             commands::customsforge_bounds,
             commands::hide_customsforge,
             commands::customsforge_navigate,
+            commands::set_hide_ads,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

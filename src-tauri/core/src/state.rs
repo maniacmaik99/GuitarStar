@@ -28,6 +28,10 @@ pub struct AppState {
     /// Keep the game visible on focus loss (handled by GuitarStar's dinput8.dll).
     #[serde(default)]
     pub keep_visible: bool,
+    /// Hide ads in the embedded CustomsForge view. Off by default: the ads are
+    /// CustomsForge's, and they help pay for the site.
+    #[serde(default)]
+    pub hide_ads: bool,
 }
 
 impl AppState {

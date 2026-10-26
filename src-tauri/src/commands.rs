@@ -479,6 +479,20 @@ pub async fn install_cdlc_enabler(app: tauri::AppHandle, ctx: State<'_, Ctx>) ->
 }
 
 pub const CUSTOMSFORGE_LABEL: &str = "customsforge";
+const AD_FILTER: &str = include_str!("adfilter.js");
+
+/// The filter is a start script of the view, so a change takes effect when the
+/// view is recreated; the login survives because cookies are stored on disk.
+#[tauri::command]
+pub fn set_hide_ads(app: tauri::AppHandle, ctx: State<'_, Ctx>, enabled: bool) -> Result<()> {
+    let mut s = ctx.state();
+    s.hide_ads = enabled;
+    ctx.save_state(s)?;
+    if let Some(view) = customsforge_view(&app) {
+        view.close().map_err(|e| AppError::msg(e.to_string()))?;
+    }
+    Ok(())
+}
 const CUSTOMSFORGE_URL: &str = "https://ignition4.customsforge.com/";
 
 #[derive(Clone, Serialize)]
@@ -547,7 +561,10 @@ pub async fn open_customsforge(app: tauri::AppHandle, x: f64, y: f64, width: f64
     }
     let window = app.get_window("main").ok_or_else(|| AppError::msg("Hauptfenster nicht gefunden."))?;
     let url = CUSTOMSFORGE_URL.parse().expect("static URL");
-    let builder = WebviewBuilder::new(CUSTOMSFORGE_LABEL, WebviewUrl::External(url)).on_download(handle_download);
+    let mut builder = WebviewBuilder::new(CUSTOMSFORGE_LABEL, WebviewUrl::External(url)).on_download(handle_download);
+    if app.state::<Ctx>().state().hide_ads {
+        builder = builder.initialization_script(AD_FILTER);
+    }
     window
         .add_child(builder, LogicalPosition::new(x, y), LogicalSize::new(width, height))
         .map_err(fail)?;

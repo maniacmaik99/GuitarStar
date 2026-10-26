@@ -57,7 +57,10 @@
       {:else if status}
         {#if status.kind === "busy"}<span class="spinner"></span>{/if}{status.text}
       {:else}
-        <span class="muted">Heruntergeladene Songs werden automatisch installiert.</span>
+        <span class="muted">
+          Heruntergeladene Songs werden automatisch installiert. Werbung auf dieser Seite schaltet CustomsForge
+          (ausblendbar unter Einstellungen).
+        </span>
       {/if}
     </div>
     <button class="primary" onclick={close}>Fertig</button>
