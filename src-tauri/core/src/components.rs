@@ -58,7 +58,7 @@ pub const COMPONENTS: &[ComponentDef] = &[
         name: "Skalierungs-Fix",
         description: "Eigene dinput8.dll von GuitarStar: Rocksmith Ã¼bernimmt die Windows-Skalierung selbst, damit das Bild auch im (exklusiven) Vollbild genau auf den Monitor passt.",
         source: Source::Bundled {
-            version: "1.1.0",
+            version: "1.2.0",
             files: &[("dinput8.dll", include_bytes!("../assets/dinput8.dll"))],
         },
         files: &["dinput8.dll"],

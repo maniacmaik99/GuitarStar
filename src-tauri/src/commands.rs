@@ -259,9 +259,11 @@ pub async fn apply_audio_config(ctx: State<'_, Ctx>, config: AudioConfig) -> Res
     ctx.change_game_files("Audio-Einstellungen geändert", |game, w| {
         write_rs_asio_ini(game, &template, &config, w)?;
         // RS_ASIO's recommended game settings; only possible once the game created its ini.
+        // Exclusive mode would lock a Windows output device for the game alone, so
+        // Discord and the like could neither play on it nor capture the game sound.
         if game.join(game::ROCKSMITH_INI).is_file() {
             let s = GameSettings {
-                exclusive_mode: Some(true),
+                exclusive_mode: Some(config.output_mode == audio::OutputMode::Asio),
                 ultra_low_latency: Some(true),
                 ..Default::default()
             };

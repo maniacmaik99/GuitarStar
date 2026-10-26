@@ -12,6 +12,7 @@
 #![no_std]
 #![no_main]
 
+mod video;
 mod window;
 
 use core::ffi::c_void;
@@ -87,6 +88,7 @@ pub unsafe extern "system" fn DllMain(module: Hmodule, reason: u32, _reserved: *
             DisableThreadLibraryCalls(module);
             make_dpi_aware();
             window::start(module);
+            video::start(module);
         }
     }
     1

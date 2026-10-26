@@ -175,7 +175,10 @@
       <input type="radio" bind:group={form.output_mode} value="asio" />
       <div>
         <strong>Über das Interface</strong>
-        <div class="muted">Kopfhörer/Boxen am Interface. Niedrigste Latenz – empfohlen.</div>
+        <div class="muted">
+          Kopfhörer/Boxen am Interface. Niedrigste Latenz – empfohlen zum Spielen. Discord kann den Spielton dann
+          nicht übertragen; Sprache aus Discord hörst du, wenn Discord ebenfalls das Interface als Ausgabe nutzt.
+        </div>
       </div>
     </label>
     <label class="option">
@@ -183,8 +186,8 @@
       <div>
         <strong>Über Windows (z. B. Bluetooth)</strong>
         <div class="muted">
-          Spielton über das Windows-Standardgerät, Gitarre weiter über das Interface. Bluetooth verzögert den Ton um
-          etwa 150–300 ms – zum Spielen merklich.
+          Spielton über das Windows-Standardgerät, Gitarre weiter über das Interface. Läuft parallel zu Discord und
+          lässt sich streamen. Bluetooth verzögert den Ton um etwa 0,2–0,5 s – auch deine Gitarre hörst du so spät.
         </div>
       </div>
     </label>
@@ -199,7 +202,10 @@
 
   <div class="row">
     <button class="primary" disabled={busy || !form.driver} onclick={save}>Übernehmen</button>
-    <span class="muted">Schreibt RS_ASIO.ini und passt Rocksmith.ini an. Beides wird vorher gesichert.</span>
+    <span class="muted">
+      Schreibt RS_ASIO.ini und passt Rocksmith.ini an (exklusiver Modus nur bei Ausgabe über das Interface). Beides wird
+      vorher gesichert.
+    </span>
   </div>
 
   <section class="card" style="margin-top: 16px">

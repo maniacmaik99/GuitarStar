@@ -89,7 +89,7 @@ static LOG: AtomicIsize = AtomicIsize::new(0);
 static LOG_LINES: AtomicU32 = AtomicU32::new(0);
 
 /// Path of `name` in the folder of this DLL, NUL-terminated.
-unsafe fn sibling(module: *mut c_void, name: &[u16], out: &mut [u16; 600]) -> bool {
+pub(crate) unsafe fn sibling(module: *mut c_void, name: &[u16], out: &mut [u16; 600]) -> bool {
     let len = unsafe { GetModuleFileNameW(module, out.as_mut_ptr(), 520) } as usize;
     if len == 0 || len >= 520 {
         return false;
@@ -105,8 +105,25 @@ unsafe fn sibling(module: *mut c_void, name: &[u16], out: &mut [u16; 600]) -> bo
     true
 }
 
-fn ini_int(section: &[u16], key: &[u16], file: &[u16; 600]) -> u32 {
+pub(crate) fn ini_int(section: &[u16], key: &[u16], file: &[u16; 600]) -> u32 {
     unsafe { GetPrivateProfileIntW(section.as_ptr(), key.as_ptr(), 0, file.as_ptr()) }
+}
+
+/// Opens `GuitarStar-window.log` once; later calls do nothing.
+pub(crate) unsafe fn open_log(module: *mut c_void) {
+    if LOG.load(Ordering::Relaxed) != 0 {
+        return;
+    }
+    let mut path = [0u16; 600];
+    unsafe {
+        if sibling(module, crate::wide!("GuitarStar-window.log"), &mut path) {
+            // GENERIC_WRITE, FILE_SHARE_READ, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL
+            let h = CreateFileW(path.as_ptr(), 0x4000_0000, 1, null_mut(), 2, 0x80, null_mut());
+            if h as isize != -1 {
+                LOG.store(h as isize, Ordering::Relaxed);
+            }
+        }
+    }
 }
 
 /// Called from DllMain: reads the settings and starts watching for the game window.
@@ -126,14 +143,7 @@ pub unsafe fn start(module: *mut c_void) {
         }
         KEEP_VISIBLE.store(keep && !exclusive, Ordering::Relaxed);
         if log {
-            let mut path = [0u16; 600];
-            if sibling(module, crate::wide!("GuitarStar-window.log"), &mut path) {
-                // GENERIC_WRITE, FILE_SHARE_READ, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL
-                let h = CreateFileW(path.as_ptr(), 0x4000_0000, 1, null_mut(), 2, 0x80, null_mut());
-                if h as isize != -1 {
-                    LOG.store(h as isize, Ordering::Relaxed);
-                }
-            }
+            open_log(module);
             log_line(b"start keep_visible=", keep as usize, b" exclusive=", exclusive as usize);
         }
         let thread = CreateThread(null_mut(), 0, watch, null_mut(), 0, null_mut());
@@ -236,7 +246,7 @@ unsafe extern "system" fn hook(hwnd: Hwnd, msg: u32, w: usize, l: isize) -> isiz
 }
 
 /// Writes `t=<ms> <a><hex b><c><hex d>` to the log, if logging is on.
-fn log_line(a: &[u8], b: usize, c: &[u8], d: usize) {
+pub(crate) fn log_line(a: &[u8], b: usize, c: &[u8], d: usize) {
     let h = LOG.load(Ordering::Relaxed);
     if h == 0 || LOG_LINES.fetch_add(1, Ordering::Relaxed) >= MAX_LOG_LINES {
         return;
@@ -261,6 +271,26 @@ fn log_line(a: &[u8], b: usize, c: &[u8], d: usize) {
     put(b" l=");
     put(&hex(d));
     put(b"\r\n");
+    let mut written = 0u32;
+    unsafe { WriteFile(h as Handle, buf.as_ptr(), n as u32, &mut written, null_mut()) };
+}
+
+/// Writes `t=<ms> <prefix><text>` to the log, if logging is on.
+pub(crate) fn log_text(prefix: &[u8], text: &[u8]) {
+    let h = LOG.load(Ordering::Relaxed);
+    if h == 0 || LOG_LINES.fetch_add(1, Ordering::Relaxed) >= MAX_LOG_LINES {
+        return;
+    }
+    let mut buf = [0u8; 400];
+    let mut n = 0;
+    for part in [b"t=".as_slice(), &hex(unsafe { GetTickCount() } as usize), b" ", prefix, text, b"\r\n"] {
+        for &x in part {
+            if n < buf.len() {
+                buf[n] = x;
+                n += 1;
+            }
+        }
+    }
     let mut written = 0u32;
     unsafe { WriteFile(h as Handle, buf.as_ptr(), n as u32, &mut written, null_mut()) };
 }
