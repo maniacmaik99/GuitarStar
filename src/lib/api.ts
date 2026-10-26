@@ -153,6 +153,14 @@ export interface DownloadReport {
   error: string | null;
 }
 
+/** An area of the main window in CSS pixels. */
+export interface Bounds {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
 export const api = {
   overview: () => invoke<Overview>("overview"),
   detectGames: () => invoke<string[]>("detect_games"),
@@ -175,7 +183,11 @@ export const api = {
   cdlcSetEnabled: (name: string, enabled: boolean) => invoke<void>("cdlc_set_enabled", { name, enabled }),
   cdlcDelete: (name: string) => invoke<void>("cdlc_delete", { name }),
   installCdlcEnabler: () => invoke<void>("install_cdlc_enabler"),
-  openCustomsforge: () => invoke<void>("open_customsforge"),
+  openCustomsforge: (b: Bounds) => invoke<void>("open_customsforge", { ...b }),
+  customsforgeBounds: (b: Bounds) => invoke<void>("customsforge_bounds", { ...b }),
+  hideCustomsforge: () => invoke<void>("hide_customsforge"),
+  customsforgeNavigate: (action: "back" | "forward" | "reload" | "home") =>
+    invoke<void>("customsforge_navigate", { action }),
 };
 
 /** Provided by the page: runs an action with busy/error handling and refreshes the overview. */

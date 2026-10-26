@@ -13,7 +13,7 @@
     type Runner,
   } from "$lib/api";
 
-  let { run, busy }: { ov: Overview; run: Runner; busy: boolean } = $props();
+  let { run, busy, openBrowser }: { ov: Overview; run: Runner; busy: boolean; openBrowser: () => void } = $props();
 
   let data = $state<CdlcOverview | null>(null);
   let loadError = $state<string | null>(null);
@@ -129,12 +129,12 @@
   <section class="card">
     <div class="row head">
       <h2>Songs finden</h2>
-      <button class="primary" onclick={() => api.openCustomsforge()}>CustomsForge öffnen</button>
+      <button class="primary" onclick={openBrowser}>CustomsForge öffnen</button>
       <button disabled={busy} onclick={pickFiles}>Dateien auswählen …</button>
     </div>
     <p class="muted">
-      Im CustomsForge-Fenster einloggen und Songs herunterladen – sie werden automatisch installiert. Oder Dateien
-      (.psarc, .zip) einfach auf dieses Fenster ziehen.
+      In CustomsForge mit deinem (kostenlosen) Konto einloggen und Songs herunterladen – sie werden automatisch
+      installiert. Oder Dateien (.psarc, .zip) einfach auf dieses Fenster ziehen.
     </p>
     {#if activity.length}
       <ul class="activity">

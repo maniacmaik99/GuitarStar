@@ -488,57 +488,104 @@ pub struct DownloadReport {
     error: Option<String>,
 }
 
-/// Opens CustomsForge in its own window. The page gets no access to the app's
-/// commands; downloads are caught here and installed as songs.
-#[tauri::command]
-pub async fn open_customsforge(app: tauri::AppHandle) -> Result<()> {
+/// Catches downloads from the CustomsForge view and installs them as songs.
+fn handle_download(webview: tauri::Webview, event: tauri::webview::DownloadEvent<'_>) -> bool {
     use tauri::webview::DownloadEvent;
-    use tauri::{Emitter, Manager, WebviewUrl, WebviewWindowBuilder};
+    use tauri::{Emitter, Manager};
 
-    if let Some(window) = app.get_webview_window(CUSTOMSFORGE_LABEL) {
-        window.set_focus().ok();
+    let app = webview.app_handle().clone();
+    match event {
+        DownloadEvent::Requested { destination, .. } => {
+            let ctx = app.state::<Ctx>();
+            let dir = ctx.data_dir.join("downloads");
+            let _ = fs::create_dir_all(&dir);
+            let name = destination.file_name().map(|n| n.to_owned()).unwrap_or_else(|| "download".into());
+            let _ = app.emit_to("main", "cdlc-download-started", name.to_string_lossy().into_owned());
+            *destination = dir.join(name);
+        }
+        DownloadEvent::Finished { path, success, .. } => {
+            let Some(path) = path else { return true };
+            let file_name = path.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default();
+            let report = if !success {
+                DownloadReport { file_name, result: None, error: Some("Download abgebrochen.".into()) }
+            } else {
+                let ctx = app.state::<Ctx>();
+                match ctx.game_dir().and_then(|g| cdlc::import(&g, &ctx.data_dir, &[path.clone()])) {
+                    Ok(result) => {
+                        let _ = fs::remove_file(&path);
+                        DownloadReport { file_name, result: Some(result), error: None }
+                    }
+                    Err(e) => DownloadReport { file_name, result: None, error: Some(e.to_string()) },
+                }
+            };
+            let _ = app.emit_to("main", "cdlc-download", report);
+        }
+        _ => {}
+    }
+    true
+}
+
+fn customsforge_view(app: &tauri::AppHandle) -> Option<tauri::Webview> {
+    use tauri::Manager;
+    app.get_webview(CUSTOMSFORGE_LABEL)
+}
+
+/// Shows CustomsForge as a layer inside the main window, at the given area in
+/// CSS pixels. It is a separate webview: the page gets no access to the app's
+/// commands (capabilities only cover the "main" webview).
+#[tauri::command]
+pub async fn open_customsforge(app: tauri::AppHandle, x: f64, y: f64, width: f64, height: f64) -> Result<()> {
+    use tauri::{LogicalPosition, LogicalSize, Manager, WebviewBuilder, WebviewUrl};
+
+    let fail = |e: tauri::Error| AppError::msg(format!("CustomsForge konnte nicht geöffnet werden: {e}"));
+    if let Some(view) = customsforge_view(&app) {
+        view.set_position(LogicalPosition::new(x, y)).map_err(fail)?;
+        view.set_size(LogicalSize::new(width, height)).map_err(fail)?;
+        view.show().map_err(fail)?;
+        view.set_focus().ok();
         return Ok(());
     }
+    let window = app.get_window("main").ok_or_else(|| AppError::msg("Hauptfenster nicht gefunden."))?;
     let url = CUSTOMSFORGE_URL.parse().expect("static URL");
-    WebviewWindowBuilder::new(&app, CUSTOMSFORGE_LABEL, WebviewUrl::External(url))
-        .title("CustomsForge – Songs werden automatisch installiert")
-        .inner_size(1200.0, 850.0)
-        .on_download(|webview, event| {
-            let app = webview.app_handle().clone();
-            match event {
-                DownloadEvent::Requested { destination, .. } => {
-                    let ctx = app.state::<Ctx>();
-                    let dir = ctx.data_dir.join("downloads");
-                    let _ = fs::create_dir_all(&dir);
-                    let name = destination
-                        .file_name()
-                        .map(|n| n.to_owned())
-                        .unwrap_or_else(|| "download".into());
-                    *destination = dir.join(name);
-                }
-                DownloadEvent::Finished { path, success, .. } => {
-                    let Some(path) = path else { return true };
-                    let file_name = path.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default();
-                    let report = if !success {
-                        DownloadReport { file_name, result: None, error: Some("Download abgebrochen.".into()) }
-                    } else {
-                        let ctx = app.state::<Ctx>();
-                        match ctx.game_dir().and_then(|g| cdlc::import(&g, &ctx.data_dir, &[path.clone()])) {
-                            Ok(result) => {
-                                let _ = fs::remove_file(&path);
-                                DownloadReport { file_name, result: Some(result), error: None }
-                            }
-                            Err(e) => DownloadReport { file_name, result: None, error: Some(e.to_string()) },
-                        }
-                    };
-                    let _ = app.emit_to("main", "cdlc-download", report);
-                }
-                _ => {}
-            }
-            true
-        })
-        .build()
-        .map_err(|e| AppError::msg(format!("Fenster konnte nicht geöffnet werden: {e}")))?;
+    let builder = WebviewBuilder::new(CUSTOMSFORGE_LABEL, WebviewUrl::External(url)).on_download(handle_download);
+    window
+        .add_child(builder, LogicalPosition::new(x, y), LogicalSize::new(width, height))
+        .map_err(fail)?;
+    Ok(())
+}
+
+#[tauri::command]
+pub fn customsforge_bounds(app: tauri::AppHandle, x: f64, y: f64, width: f64, height: f64) -> Result<()> {
+    use tauri::{LogicalPosition, LogicalSize};
+    if let Some(view) = customsforge_view(&app) {
+        let fail = |e: tauri::Error| AppError::msg(e.to_string());
+        view.set_position(LogicalPosition::new(x, y)).map_err(fail)?;
+        view.set_size(LogicalSize::new(width, height)).map_err(fail)?;
+    }
+    Ok(())
+}
+
+/// Hides the layer but keeps the page (and the login) for the next time.
+#[tauri::command]
+pub fn hide_customsforge(app: tauri::AppHandle) -> Result<()> {
+    if let Some(view) = customsforge_view(&app) {
+        view.hide().map_err(|e| AppError::msg(e.to_string()))?;
+    }
+    Ok(())
+}
+
+#[tauri::command]
+pub fn customsforge_navigate(app: tauri::AppHandle, action: String) -> Result<()> {
+    let script = match action.as_str() {
+        "back" => "history.back()",
+        "forward" => "history.forward()",
+        "reload" => "location.reload()",
+        "home" => "location.href = 'https://ignition4.customsforge.com/'",
+        _ => return Err(AppError::msg("Unbekannte Aktion.")),
+    };
+    if let Some(view) = customsforge_view(&app) {
+        view.eval(script).map_err(|e| AppError::msg(e.to_string()))?;
+    }
     Ok(())
 }
 

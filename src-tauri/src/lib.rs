@@ -34,6 +34,9 @@ pub fn run() {
             commands::cdlc_delete,
             commands::install_cdlc_enabler,
             commands::open_customsforge,
+            commands::customsforge_bounds,
+            commands::hide_customsforge,
+            commands::customsforge_navigate,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

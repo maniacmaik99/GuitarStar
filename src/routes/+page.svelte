@@ -6,6 +6,7 @@
   import AudioTab from "$lib/AudioTab.svelte";
   import ComponentsTab from "$lib/ComponentsTab.svelte";
   import SongsTab from "$lib/SongsTab.svelte";
+  import BrowserLayer from "$lib/BrowserLayer.svelte";
   import HistoryTab from "$lib/HistoryTab.svelte";
 
   type Tab = "game" | "audio" | "songs" | "components" | "history";
@@ -23,6 +24,7 @@
   let error = $state<string | null>(null);
   let notice = $state<string | null>(null);
   let detected = $state<string[]>([]);
+  let browserOpen = $state(false);
 
   async function refresh() {
     ov = await api.overview();
@@ -119,7 +121,7 @@
       {:else if tab === "audio"}
         <AudioTab {ov} {run} busy={!!busy} gotoComponents={() => (tab = "components")} />
       {:else if tab === "songs"}
-        <SongsTab {ov} {run} busy={!!busy} />
+        <SongsTab {ov} {run} busy={!!busy} openBrowser={() => (browserOpen = true)} />
       {:else if tab === "components"}
         <ComponentsTab {ov} {run} busy={!!busy} />
       {:else}
@@ -128,6 +130,10 @@
     </main>
   {/if}
 </div>
+
+{#if browserOpen}
+  <BrowserLayer onclose={() => (browserOpen = false)} />
+{/if}
 
 <style>
   :global(:root) {
