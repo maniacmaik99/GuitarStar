@@ -1,6 +1,8 @@
 // Injected into the CustomsForge view only when the user turned on
 // "Werbung ausblenden". Hides ad slots; it does not touch the rest of the page.
 (() => {
+  // The view also shows file hosts (Google Drive …); only filter CustomsForge itself.
+  if (!/(^|\.)customsforge\.com$/.test(location.hostname)) return;
   if (window.__guitarstarAdFilter) return;
   window.__guitarstarAdFilter = true;
 

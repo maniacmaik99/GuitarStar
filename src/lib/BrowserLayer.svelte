@@ -7,6 +7,7 @@
 
   let area: HTMLDivElement;
   let status = $state<{ text: string; kind: "busy" | "ok" | "bad" } | null>(null);
+  let page = $state<{ host: string; loading: boolean } | null>(null);
   let error = $state<string | null>(null);
 
   // The CustomsForge page is a native webview placed over this element.
@@ -28,6 +29,14 @@
     const onKey = (e: KeyboardEvent) => e.key === "Escape" && close();
     window.addEventListener("keydown", onKey);
     const unlisteners = [
+      listen<[string, string]>("customsforge-page", (e) => {
+        const [state, url] = e.payload;
+        let host = url;
+        try {
+          host = new URL(url).host;
+        } catch {}
+        page = { host, loading: state === "started" };
+      }),
       listen<string>("cdlc-download-started", (e) => (status = { text: `Lädt ${e.payload} …`, kind: "busy" })),
       listen<DownloadReport>("cdlc-download", (e) => {
         const r = e.payload;
@@ -51,6 +60,11 @@
     <button title="Vor" onclick={() => api.customsforgeNavigate("forward")}>→</button>
     <button title="Neu laden" onclick={() => api.customsforgeNavigate("reload")}>⟳</button>
     <button title="Startseite" onclick={() => api.customsforgeNavigate("home")}>CustomsForge</button>
+    {#if page}
+      <span class="host" title={page.host}>
+        {#if page.loading}<span class="spinner"></span>{/if}{page.host}
+      </span>
+    {/if}
     <div class="status" class:ok={status?.kind === "ok"} class:bad={status?.kind === "bad"}>
       {#if error}
         <span class="bad">{error}</span>
@@ -105,6 +119,17 @@
   }
   .area {
     flex: 1;
+  }
+  .host {
+    color: var(--muted);
+    font-size: 0.85rem;
+    padding: 4px 8px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    max-width: 260px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
   .spinner {
     display: inline-block;

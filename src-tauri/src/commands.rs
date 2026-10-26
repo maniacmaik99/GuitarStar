@@ -508,6 +508,11 @@ fn handle_download(webview: tauri::Webview, event: tauri::webview::DownloadEvent
     use tauri::{Emitter, Manager};
 
     let app = webview.app_handle().clone();
+    match &event {
+        DownloadEvent::Requested { url, destination } => eprintln!("[customsforge] download requested {url} -> {}", destination.display()),
+        DownloadEvent::Finished { url, path, success } => eprintln!("[customsforge] download finished {url} {path:?} success={success}"),
+        _ => {}
+    }
     match event {
         DownloadEvent::Requested { destination, .. } => {
             let ctx = app.state::<Ctx>();
@@ -565,9 +570,31 @@ pub async fn open_customsforge(app: tauri::AppHandle, x: f64, y: f64, width: f64
     // in a new tab. There are no tabs here, so the link opens in the same view,
     // where the download can be caught; "←" leads back to CustomsForge.
     let nav_app = app.clone();
+    let drive_app = app.clone();
     let mut builder = WebviewBuilder::new(CUSTOMSFORGE_LABEL, WebviewUrl::External(url))
         .on_download(handle_download)
+        .on_navigation(move |url| {
+            let Some(direct) = cdlc::drive_direct_download(url) else { return true };
+            eprintln!("[customsforge] google drive -> {direct}");
+            if let Some(view) = customsforge_view(&drive_app) {
+                tauri::async_runtime::spawn(async move {
+                    let _ = view.navigate(direct);
+                });
+            }
+            false
+        })
+        .on_page_load(|webview, payload| {
+            use tauri::Emitter;
+            use tauri::webview::PageLoadEvent;
+            let state = match payload.event() {
+                PageLoadEvent::Started => "started",
+                PageLoadEvent::Finished => "finished",
+            };
+            eprintln!("[customsforge] page {state} {}", payload.url());
+            let _ = webview.app_handle().emit_to("main", "customsforge-page", (state, payload.url().to_string()));
+        })
         .on_new_window(move |url, _features| {
+            eprintln!("[customsforge] new window {url}");
             if matches!(url.scheme(), "http" | "https") {
                 if let Some(view) = customsforge_view(&nav_app) {
                     tauri::async_runtime::spawn(async move {

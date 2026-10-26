@@ -226,6 +226,26 @@ pub fn delete(game_dir: &Path, data_dir: &Path, name: &str) -> Result<()> {
     Ok(())
 }
 
+/// Google Drive links on CustomsForge point to the file's preview page, which
+/// does not work inside the embedded view. The direct download address starts
+/// the download right away (or shows Google's "can't scan for viruses" page
+/// with a download button for large files).
+pub fn drive_direct_download(url: &reqwest::Url) -> Option<reqwest::Url> {
+    if url.host_str() != Some("drive.google.com") {
+        return None;
+    }
+    let mut segments = url.path_segments()?;
+    let id = match (segments.next(), segments.next(), segments.next()) {
+        (Some("file"), Some("d"), Some(id)) if !id.is_empty() => id.to_string(),
+        // drive.google.com/open?id=… and /uc?id=…
+        _ => url.query_pairs().find(|(k, _)| k == "id").map(|(_, v)| v.into_owned())?,
+    };
+    if !id.chars().all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '_') {
+        return None;
+    }
+    format!("https://drive.usercontent.google.com/download?id={id}&export=download").parse().ok()
+}
+
 /// Whether the free "Cherub Rock" DLC (app 248750) is installed; older CDLC
 /// enablers need it.
 pub fn cherub_rock_installed(game_dir: &Path) -> Option<bool> {
@@ -255,6 +275,19 @@ mod tests {
             (Some("Metallica".into()), "Master of Puppets".into(), Some("1.2".into()))
         );
         assert_eq!(parse_name("song_p.psarc"), (None, "song".into(), None));
+    }
+
+    #[test]
+    fn rewrites_drive_preview_links() {
+        let direct = |u: &str| drive_direct_download(&u.parse().unwrap()).map(|u| u.to_string());
+        assert_eq!(
+            direct("https://drive.google.com/file/d/1qspESUrPEdsOKMXIe6csMSCh6Jv1BCPD/view?usp=drive_copy").as_deref(),
+            Some("https://drive.usercontent.google.com/download?id=1qspESUrPEdsOKMXIe6csMSCh6Jv1BCPD&export=download")
+        );
+        assert!(direct("https://drive.google.com/open?id=abc_DEF-1").is_some());
+        assert_eq!(direct("https://drive.google.com/drive/folders/xyz"), None);
+        assert_eq!(direct("https://drive.google.com/file/d/x%22y/view"), None);
+        assert_eq!(direct("https://ignition4.customsforge.com/file/d/x/view"), None);
     }
 
     #[test]
