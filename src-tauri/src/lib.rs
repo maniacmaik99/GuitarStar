@@ -28,6 +28,12 @@ pub fn run() {
             commands::monitor_sizes,
             commands::set_dpi_override,
             commands::set_keep_visible,
+            commands::cdlc_overview,
+            commands::cdlc_import,
+            commands::cdlc_set_enabled,
+            commands::cdlc_delete,
+            commands::install_cdlc_enabler,
+            commands::open_customsforge,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

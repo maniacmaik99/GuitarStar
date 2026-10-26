@@ -15,7 +15,7 @@ use guitarstar_core::error::{AppError, Result};
 use guitarstar_core::game::{self, GameInfo, GameSettings};
 use guitarstar_core::snapshot::{SnapshotStore, SnapshotWriter};
 use guitarstar_core::state::{AppState, InstalledComponent};
-use guitarstar_core::{display, reqwest, steam};
+use guitarstar_core::{cdlc, display, reqwest, steam};
 
 const RS_ASIO_INI: &str = "RS_ASIO.ini";
 
@@ -414,6 +414,132 @@ pub async fn restore_original(ctx: State<'_, Ctx>) -> Result<()> {
         Some(restored) => apply_restored_state(&ctx, restored),
         None => Ok(()),
     }
+}
+
+#[derive(Serialize)]
+pub struct CdlcOverview {
+    songs: Vec<cdlc::CdlcEntry>,
+    enabler_installed: bool,
+    /// `None` when the Steam manifest could not be read.
+    cherub_rock_installed: Option<bool>,
+}
+
+#[tauri::command]
+pub fn cdlc_overview(ctx: State<'_, Ctx>) -> Result<CdlcOverview> {
+    let game = ctx.game_dir()?;
+    Ok(CdlcOverview {
+        songs: cdlc::list(&game, &ctx.data_dir)?,
+        enabler_installed: cdlc::enabler_installed(&game),
+        cherub_rock_installed: cdlc::cherub_rock_installed(&game),
+    })
+}
+
+#[tauri::command]
+pub async fn cdlc_import(ctx: State<'_, Ctx>, paths: Vec<String>) -> Result<cdlc::ImportResult> {
+    let _op = ctx.op.lock().await;
+    let paths: Vec<PathBuf> = paths.into_iter().map(PathBuf::from).collect();
+    cdlc::import(&ctx.game_dir()?, &ctx.data_dir, &paths)
+}
+
+#[tauri::command]
+pub async fn cdlc_set_enabled(ctx: State<'_, Ctx>, name: String, enabled: bool) -> Result<()> {
+    let _op = ctx.op.lock().await;
+    cdlc::set_enabled(&ctx.game_dir()?, &ctx.data_dir, &name, enabled)
+}
+
+#[tauri::command]
+pub async fn cdlc_delete(ctx: State<'_, Ctx>, name: String) -> Result<()> {
+    let _op = ctx.op.lock().await;
+    cdlc::delete(&ctx.game_dir()?, &ctx.data_dir, &name)
+}
+
+const ENABLER_URL: &str = "https://ignition4.customsforge.com/tools/download/cdlc-enabler";
+
+/// Downloads CustomsForge's CDLC Enabler installer and starts it. The files it
+/// is known to change are saved first, so the history can undo it.
+#[tauri::command]
+pub async fn install_cdlc_enabler(app: tauri::AppHandle, ctx: State<'_, Ctx>) -> Result<()> {
+    use tauri_plugin_opener::OpenerExt;
+    let _op = ctx.op.lock().await;
+    let bytes = ctx.http.get(ENABLER_URL).send().await?.error_for_status()?.bytes().await?;
+    if bytes.len() < 2 || &bytes[..2] != b"MZ" {
+        return Err(AppError::msg("CustomsForge hat keine Installationsdatei geliefert. Bitte später erneut versuchen."));
+    }
+    let dir = ctx.data_dir.join("downloads");
+    fs::create_dir_all(&dir)?;
+    let installer = dir.join("RS2014-CDLC-Installer.exe");
+    fs::write(&installer, &bytes)?;
+    ctx.change_game_files("CDLC-Enabler (vor der Installation)", |_, w| {
+        w.protect("D3DX9_42.dll")?;
+        w.protect(steam::ROCKSMITH_EXE)
+    })?;
+    app.opener()
+        .open_path(installer.to_string_lossy(), None::<&str>)
+        .map_err(|e| AppError::msg(format!("Der Installer konnte nicht gestartet werden: {e}")))
+}
+
+pub const CUSTOMSFORGE_LABEL: &str = "customsforge";
+const CUSTOMSFORGE_URL: &str = "https://ignition4.customsforge.com/";
+
+#[derive(Clone, Serialize)]
+pub struct DownloadReport {
+    file_name: String,
+    result: Option<cdlc::ImportResult>,
+    error: Option<String>,
+}
+
+/// Opens CustomsForge in its own window. The page gets no access to the app's
+/// commands; downloads are caught here and installed as songs.
+#[tauri::command]
+pub async fn open_customsforge(app: tauri::AppHandle) -> Result<()> {
+    use tauri::webview::DownloadEvent;
+    use tauri::{Emitter, Manager, WebviewUrl, WebviewWindowBuilder};
+
+    if let Some(window) = app.get_webview_window(CUSTOMSFORGE_LABEL) {
+        window.set_focus().ok();
+        return Ok(());
+    }
+    let url = CUSTOMSFORGE_URL.parse().expect("static URL");
+    WebviewWindowBuilder::new(&app, CUSTOMSFORGE_LABEL, WebviewUrl::External(url))
+        .title("CustomsForge – Songs werden automatisch installiert")
+        .inner_size(1200.0, 850.0)
+        .on_download(|webview, event| {
+            let app = webview.app_handle().clone();
+            match event {
+                DownloadEvent::Requested { destination, .. } => {
+                    let ctx = app.state::<Ctx>();
+                    let dir = ctx.data_dir.join("downloads");
+                    let _ = fs::create_dir_all(&dir);
+                    let name = destination
+                        .file_name()
+                        .map(|n| n.to_owned())
+                        .unwrap_or_else(|| "download".into());
+                    *destination = dir.join(name);
+                }
+                DownloadEvent::Finished { path, success, .. } => {
+                    let Some(path) = path else { return true };
+                    let file_name = path.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default();
+                    let report = if !success {
+                        DownloadReport { file_name, result: None, error: Some("Download abgebrochen.".into()) }
+                    } else {
+                        let ctx = app.state::<Ctx>();
+                        match ctx.game_dir().and_then(|g| cdlc::import(&g, &ctx.data_dir, &[path.clone()])) {
+                            Ok(result) => {
+                                let _ = fs::remove_file(&path);
+                                DownloadReport { file_name, result: Some(result), error: None }
+                            }
+                            Err(e) => DownloadReport { file_name, result: None, error: Some(e.to_string()) },
+                        }
+                    };
+                    let _ = app.emit_to("main", "cdlc-download", report);
+                }
+                _ => {}
+            }
+            true
+        })
+        .build()
+        .map_err(|e| AppError::msg(format!("Fenster konnte nicht geöffnet werden: {e}")))?;
+    Ok(())
 }
 
 #[derive(Serialize)]

@@ -126,6 +126,33 @@ export interface MonitorSize {
   scale_factor: number;
 }
 
+export interface CdlcEntry {
+  file_name: string;
+  artist: string | null;
+  title: string;
+  version: string | null;
+  size: number;
+  enabled: boolean;
+  modified: number;
+}
+
+export interface CdlcOverview {
+  songs: CdlcEntry[];
+  enabler_installed: boolean;
+  cherub_rock_installed: boolean | null;
+}
+
+export interface ImportResult {
+  imported: string[];
+  skipped: [string, string][];
+}
+
+export interface DownloadReport {
+  file_name: string;
+  result: ImportResult | null;
+  error: string | null;
+}
+
 export const api = {
   overview: () => invoke<Overview>("overview"),
   detectGames: () => invoke<string[]>("detect_games"),
@@ -143,6 +170,12 @@ export const api = {
   monitorSizes: () => invoke<MonitorSize[]>("monitor_sizes"),
   setDpiOverride: (enabled: boolean) => invoke<void>("set_dpi_override", { enabled }),
   setKeepVisible: (enabled: boolean) => invoke<void>("set_keep_visible", { enabled }),
+  cdlcOverview: () => invoke<CdlcOverview>("cdlc_overview"),
+  cdlcImport: (paths: string[]) => invoke<ImportResult>("cdlc_import", { paths }),
+  cdlcSetEnabled: (name: string, enabled: boolean) => invoke<void>("cdlc_set_enabled", { name, enabled }),
+  cdlcDelete: (name: string) => invoke<void>("cdlc_delete", { name }),
+  installCdlcEnabler: () => invoke<void>("install_cdlc_enabler"),
+  openCustomsforge: () => invoke<void>("open_customsforge"),
 };
 
 /** Provided by the page: runs an action with busy/error handling and refreshes the overview. */

@@ -5,12 +5,14 @@
   import GameTab from "$lib/GameTab.svelte";
   import AudioTab from "$lib/AudioTab.svelte";
   import ComponentsTab from "$lib/ComponentsTab.svelte";
+  import SongsTab from "$lib/SongsTab.svelte";
   import HistoryTab from "$lib/HistoryTab.svelte";
 
-  type Tab = "game" | "audio" | "components" | "history";
+  type Tab = "game" | "audio" | "songs" | "components" | "history";
   const tabs: { id: Tab; label: string }[] = [
     { id: "game", label: "Spiel" },
     { id: "audio", label: "Audio" },
+    { id: "songs", label: "Songs" },
     { id: "components", label: "Komponenten" },
     { id: "history", label: "Verlauf" },
   ];
@@ -116,6 +118,8 @@
         <GameTab {ov} {run} busy={!!busy} />
       {:else if tab === "audio"}
         <AudioTab {ov} {run} busy={!!busy} gotoComponents={() => (tab = "components")} />
+      {:else if tab === "songs"}
+        <SongsTab {ov} {run} busy={!!busy} />
       {:else if tab === "components"}
         <ComponentsTab {ov} {run} busy={!!busy} />
       {:else}

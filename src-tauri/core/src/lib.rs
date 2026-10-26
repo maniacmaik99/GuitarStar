@@ -2,6 +2,7 @@
 //! it can be tested on its own and reused by other front ends.
 
 pub mod audio;
+pub mod cdlc;
 pub mod components;
 pub mod display;
 pub mod error;
