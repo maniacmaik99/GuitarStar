@@ -40,7 +40,9 @@ pub struct SnapshotWriter {
 
 fn checked_relative(rel: &str) -> Result<PathBuf> {
     let p = Path::new(rel);
-    if p.components().all(|c| matches!(c, Component::Normal(_))) {
+    // ':' is checked separately: on Linux "C:/x" parses as a normal relative path,
+    // and on Windows it could also address an alternate data stream.
+    if !rel.contains(':') && p.components().all(|c| matches!(c, Component::Normal(_))) {
         Ok(p.to_path_buf())
     } else {
         Err(AppError::msg(format!("Ungültiger Pfad im Spielordner: {rel}")))
