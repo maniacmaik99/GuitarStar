@@ -561,7 +561,22 @@ pub async fn open_customsforge(app: tauri::AppHandle, x: f64, y: f64, width: f64
     }
     let window = app.get_window("main").ok_or_else(|| AppError::msg("Hauptfenster nicht gefunden."))?;
     let url = CUSTOMSFORGE_URL.parse().expect("static URL");
-    let mut builder = WebviewBuilder::new(CUSTOMSFORGE_LABEL, WebviewUrl::External(url)).on_download(handle_download);
+    // Download buttons on CustomsForge open the file host (Google Drive, Mega …)
+    // in a new tab. There are no tabs here, so the link opens in the same view,
+    // where the download can be caught; "←" leads back to CustomsForge.
+    let nav_app = app.clone();
+    let mut builder = WebviewBuilder::new(CUSTOMSFORGE_LABEL, WebviewUrl::External(url))
+        .on_download(handle_download)
+        .on_new_window(move |url, _features| {
+            if matches!(url.scheme(), "http" | "https") {
+                if let Some(view) = customsforge_view(&nav_app) {
+                    tauri::async_runtime::spawn(async move {
+                        let _ = view.navigate(url);
+                    });
+                }
+            }
+            tauri::webview::NewWindowResponse::Deny
+        });
     if app.state::<Ctx>().state().hide_ads {
         builder = builder.initialization_script(AD_FILTER);
     }
