@@ -38,6 +38,10 @@ pub fn run() {
             commands::hide_customsforge,
             commands::customsforge_navigate,
             commands::set_hide_ads,
+            commands::default_output_device,
+            commands::rsmods_status,
+            commands::install_rsmods,
+            commands::open_rsmods_gui,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

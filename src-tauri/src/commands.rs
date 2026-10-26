@@ -15,7 +15,7 @@ use guitarstar_core::error::{AppError, Result};
 use guitarstar_core::game::{self, GameInfo, GameSettings};
 use guitarstar_core::snapshot::{SnapshotStore, SnapshotWriter};
 use guitarstar_core::state::{AppState, InstalledComponent};
-use guitarstar_core::{cdlc, display, reqwest, steam};
+use guitarstar_core::{cdlc, display, reqwest, rsmods, steam};
 
 const RS_ASIO_INI: &str = "RS_ASIO.ini";
 
@@ -231,6 +231,11 @@ pub fn save_profile(ctx: State<'_, Ctx>, profile: DeviceProfile) -> Result<()> {
 #[tauri::command]
 pub fn list_asio_drivers() -> Vec<AsioDriver> {
     audio::asio_drivers()
+}
+
+#[tauri::command]
+pub async fn default_output_device() -> Option<audio::OutputDevice> {
+    audio::default_output()
 }
 
 /// RS_ASIO's own template from the installed version, or the bundled copy.
@@ -478,6 +483,47 @@ pub async fn install_cdlc_enabler(app: tauri::AppHandle, ctx: State<'_, Ctx>) ->
     app.opener()
         .open_path(installer.to_string_lossy(), None::<&str>)
         .map_err(|e| AppError::msg(format!("Der Installer konnte nicht gestartet werden: {e}")))
+}
+
+#[tauri::command]
+pub fn rsmods_status(ctx: State<'_, Ctx>) -> Result<rsmods::RsModsStatus> {
+    Ok(rsmods::status(&ctx.game_dir()?))
+}
+
+/// Downloads the newest RSMods installer from GitHub and starts it, after
+/// saving the files RSMods changes.
+#[tauri::command]
+pub async fn install_rsmods(app: tauri::AppHandle, ctx: State<'_, Ctx>) -> Result<String> {
+    use tauri_plugin_opener::OpenerExt;
+    let _op = ctx.op.lock().await;
+    let rel = components::github_releases(&ctx.http, rsmods::REPO, rsmods::INSTALLER_SUFFIX)
+        .await?
+        .into_iter()
+        .find(|r| !r.prerelease)
+        .ok_or_else(|| AppError::msg("Auf GitHub wurde kein RSMods-Installer gefunden."))?;
+    let bytes = components::download_verified(&ctx.http, &rel).await?;
+    let dir = ctx.data_dir.join("downloads");
+    fs::create_dir_all(&dir)?;
+    let installer = dir.join(&rel.asset_name);
+    fs::write(&installer, bytes)?;
+    ctx.change_game_files(&format!("RSMods {} (vor der Installation)", rel.version), |_, w| {
+        rsmods::PROTECTED_FILES.iter().try_for_each(|f| w.protect(f))
+    })?;
+    app.opener()
+        .open_path(installer.to_string_lossy(), None::<&str>)
+        .map_err(|e| AppError::msg(format!("Der Installer konnte nicht gestartet werden: {e}")))?;
+    Ok(rel.version)
+}
+
+#[tauri::command]
+pub fn open_rsmods_gui(app: tauri::AppHandle, ctx: State<'_, Ctx>) -> Result<()> {
+    use tauri_plugin_opener::OpenerExt;
+    let gui = rsmods::status(&ctx.game_dir()?)
+        .gui
+        .ok_or_else(|| AppError::msg("Die RSMods-Oberfläche wurde im Spielordner nicht gefunden."))?;
+    app.opener()
+        .open_path(gui, None::<&str>)
+        .map_err(|e| AppError::msg(format!("RSMods konnte nicht geöffnet werden: {e}")))
 }
 
 pub const CUSTOMSFORGE_LABEL: &str = "customsforge";

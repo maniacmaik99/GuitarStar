@@ -111,6 +111,56 @@ pub fn asio_drivers() -> Vec<AsioDriver> {
     Vec::new()
 }
 
+/// The Windows default playback device, i.e. where "Windows" output mode plays.
+#[derive(Debug, Clone, Serialize)]
+pub struct OutputDevice {
+    pub name: String,
+    /// The hardware behind the endpoint, e.g. "WH-1000XM3".
+    pub device: Option<String>,
+    pub bluetooth: bool,
+}
+
+#[cfg(windows)]
+pub fn default_output() -> Option<OutputDevice> {
+    use windows::Win32::Media::Audio::{IMMDeviceEnumerator, MMDeviceEnumerator, eConsole, eRender};
+    use windows::Win32::System::Com::{CLSCTX_ALL, COINIT_MULTITHREADED, CoCreateInstance, CoInitializeEx, CoTaskMemFree};
+    use winreg::RegKey;
+    use winreg::enums::HKEY_LOCAL_MACHINE;
+    use winreg::types::FromRegValue;
+
+    let id = unsafe {
+        // Fails harmlessly if the thread already uses another COM mode.
+        let _ = CoInitializeEx(None, COINIT_MULTITHREADED);
+        let enumerator: IMMDeviceEnumerator = CoCreateInstance(&MMDeviceEnumerator, None, CLSCTX_ALL).ok()?;
+        let device = enumerator.GetDefaultAudioEndpoint(eRender, eConsole).ok()?;
+        let raw = device.GetId().ok()?;
+        let id = raw.to_string().ok();
+        CoTaskMemFree(Some(raw.0 as _));
+        id?
+    };
+    // "{0.0.0.00000000}.{guid}": the guid names the endpoint's registry key.
+    let guid = id.rsplit('.').next()?;
+    let props = RegKey::predef(HKEY_LOCAL_MACHINE)
+        .open_subkey(format!(r"SOFTWARE\Microsoft\Windows\CurrentVersion\MMDevices\Audio\Render\{guid}\Properties"))
+        .ok()?;
+    let text = |key: &str| props.get_value::<String, _>(key).ok();
+    let bluetooth = props
+        .enum_values()
+        .filter_map(|v| v.ok())
+        .filter_map(|(_, value)| String::from_reg_value(&value).ok())
+        .any(|s| s.contains("BTHENUM") || s.contains("BTHLE"));
+    Some(OutputDevice {
+        name: text("{a45c254e-df1c-4efd-8020-67d146a850e0},2").unwrap_or_else(|| "Unbekanntes Gerät".into()),
+        device: text("{b3f8fa53-0004-438e-9003-51a46e139bfc},6"),
+        bluetooth,
+    })
+}
+
+#[cfg(not(windows))]
+pub fn default_output() -> Option<OutputDevice> {
+    None
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum OutputMode {

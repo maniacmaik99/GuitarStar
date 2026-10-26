@@ -48,7 +48,7 @@ pub const COMPONENTS: &[ComponentDef] = &[
     ComponentDef {
         id: "rs_asio",
         name: "RS_ASIO",
-        description: "Leitet Ein- und Ausgabe des Spiels auf ein Audio-Interface (ASIO) um: niedrige Latenz, kein Rocksmith-Kabel nÃ¶tig.",
+        description: "Leitet Ein- und Ausgabe des Spiels auf ein Audio-Interface (ASIO) um: niedrige Latenz, kein Rocksmith-Kabel nötig.",
         source: Source::GitHub { repo: "mdias/rs_asio", asset_suffix: ".zip" },
         files: &["avrt.dll", "RS_ASIO.dll"],
         extras: &["RS_ASIO.ini"],
@@ -56,7 +56,7 @@ pub const COMPONENTS: &[ComponentDef] = &[
     ComponentDef {
         id: DPI_FIX_ID,
         name: "Skalierungs-Fix",
-        description: "Eigene dinput8.dll von GuitarStar: Rocksmith Ã¼bernimmt die Windows-Skalierung selbst, damit das Bild auch im (exklusiven) Vollbild genau auf den Monitor passt.",
+        description: "Eigene dinput8.dll von GuitarStar: Rocksmith übernimmt die Windows-Skalierung selbst, damit das Bild auch im (exklusiven) Vollbild genau auf den Monitor passt.",
         source: Source::Bundled {
             version: "1.2.0",
             files: &[("dinput8.dll", include_bytes!("../assets/dinput8.dll"))],
@@ -81,7 +81,7 @@ pub struct ReleaseInfo {
     pub asset_name: String,
     pub asset_url: String,
     pub asset_size: u64,
-    /// GitHub's asset digest, e.g. `sha256:â€¦`, when GitHub provides one.
+    /// GitHub's asset digest, e.g. `sha256:…`, when GitHub provides one.
     pub digest: Option<String>,
     pub prerelease: bool,
 }
@@ -138,6 +138,11 @@ pub async fn releases(http: &reqwest::Client, def: &ComponentDef) -> Result<Vec<
             }]);
         }
     };
+    github_releases(http, repo, asset_suffix).await
+}
+
+/// Releases of any GitHub repository that carry an asset ending in `asset_suffix`.
+pub async fn github_releases(http: &reqwest::Client, repo: &str, asset_suffix: &str) -> Result<Vec<ReleaseInfo>> {
     let url = format!("https://api.github.com/repos/{repo}/releases?per_page=30");
     let list: Vec<GhRelease> = http
         .get(url)
@@ -229,6 +234,21 @@ pub fn is_bundled_file(def: &ComponentDef, name: &str, path: &Path) -> bool {
         .is_some_and(|(_, bytes)| fs::read(path).is_ok_and(|b| b == *bytes))
 }
 
+/// Downloads a release asset and checks it against GitHub's digest, if any.
+pub async fn download_verified(http: &reqwest::Client, rel: &ReleaseInfo) -> Result<Vec<u8>> {
+    let bytes = http.get(&rel.asset_url).send().await?.error_for_status()?.bytes().await?;
+    let sha256 = hex::encode(Sha256::digest(&bytes));
+    if let Some(expected) = rel.digest.as_deref().and_then(|d| d.strip_prefix("sha256:")) {
+        if !expected.eq_ignore_ascii_case(&sha256) {
+            return Err(AppError::msg(format!(
+                "Die Prüfsumme von {} stimmt nicht mit GitHub überein. Download abgebrochen.",
+                rel.asset_name
+            )));
+        }
+    }
+    Ok(bytes.to_vec())
+}
+
 /// Downloads a release, verifies it against GitHub's digest and unpacks the
 /// component's files into the version cache.
 pub async fn download(
@@ -237,16 +257,8 @@ pub async fn download(
     def: &ComponentDef,
     rel: &ReleaseInfo,
 ) -> Result<PathBuf> {
-    let bytes = http.get(&rel.asset_url).send().await?.error_for_status()?.bytes().await?;
+    let bytes = download_verified(http, rel).await?;
     let sha256 = hex::encode(Sha256::digest(&bytes));
-    if let Some(expected) = rel.digest.as_deref().and_then(|d| d.strip_prefix("sha256:")) {
-        if !expected.eq_ignore_ascii_case(&sha256) {
-            return Err(AppError::msg(format!(
-                "Die PrÃ¼fsumme von {} stimmt nicht mit GitHub Ã¼berein. Download abgebrochen.",
-                rel.asset_name
-            )));
-        }
-    }
 
     let final_dir = cache_dir(data_dir, def.id, &rel.version);
     let tmp_dir = final_dir.with_extension("partial");
@@ -272,7 +284,7 @@ pub async fn download(
     if let Some(missing) = def.files.iter().find(|f| !tmp_dir.join(f).is_file()) {
         let _ = fs::remove_dir_all(&tmp_dir);
         return Err(AppError::msg(format!(
-            "{} {} enthÃ¤lt die Datei {missing} nicht. Diese Version wird nicht unterstÃ¼tzt.",
+            "{} {} enthält die Datei {missing} nicht. Diese Version wird nicht unterstützt.",
             def.name, rel.version
         )));
     }

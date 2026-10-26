@@ -1,8 +1,33 @@
 <script lang="ts">
+  import { onMount } from "svelte";
+  import { ask } from "@tauri-apps/plugin-dialog";
   import { openUrl } from "@tauri-apps/plugin-opener";
-  import { api, errorText, formatDate, type ComponentStatus, type Overview, type ReleaseInfo, type Runner } from "$lib/api";
+  import {
+    api,
+    errorText,
+    formatDate,
+    type ComponentStatus,
+    type Overview,
+    type ReleaseInfo,
+    type RsModsStatus,
+    type Runner,
+  } from "$lib/api";
 
   let { ov, run, busy }: { ov: Overview; run: Runner; busy: boolean } = $props();
+
+  let rsmods = $state<RsModsStatus | null>(null);
+  const loadRsmods = async () => (rsmods = await api.rsmodsStatus().catch(() => null));
+  onMount(loadRsmods);
+
+  async function installRsmods() {
+    const ok = await ask(
+      "GuitarStar lädt den offiziellen RSMods-Installer von GitHub (Lovrom8/RSMods) und startet ihn. Vorher werden xinput1_3.dll, RSMods.ini und cache.psarc gesichert. Weiter?",
+      { title: "RSMods installieren", kind: "info" },
+    );
+    if (ok) {
+      await run("RSMods-Installer wird geladen …", () => api.installRsmods(), "Installer gestartet. Danach hier „Neu prüfen“ klicken.");
+    }
+  }
 
   let releases = $state<Record<string, ReleaseInfo[]>>({});
   let loadError = $state<Record<string, string>>({});
@@ -136,6 +161,42 @@
     {/if}
   </section>
 {/each}
+
+<section class="card">
+  <div class="row head">
+    <h2>RSMods</h2>
+    {#if rsmods?.installed}
+      <span class="badge ok">installiert</span>
+    {:else}
+      <span class="badge">nicht installiert</span>
+    {/if}
+    <span class="badge">optional</span>
+  </div>
+  <p class="muted">
+    Große Mod-Sammlung der Community: <strong>Fast Load</strong> (überspringt die Intro-Logos beim Start), eigene
+    Songlisten, Songs ohne Neustart neu laden, Riff Repeater über 100 %, Lautstärke per Hotkey und mehr. Eingestellt
+    wird alles in der RSMods-Oberfläche.
+  </p>
+  <p class="muted small">
+    Quelle: <button class="link inline" onclick={() => openUrl("https://github.com/Lovrom8/RSMods")}>github.com/Lovrom8/RSMods</button>
+    – wird mit dem offiziellen Installer eingerichtet, nicht von GuitarStar mitgeliefert.
+  </p>
+  <div class="hint">
+    Fast Load und einige andere Funktionen verändern die Spieldatei cache.psarc. GuitarStar sichert sie vor der
+    Installation; über „Verlauf“ lässt sich der Stand davor zurückholen. Fast Load gilt auf HDDs als instabil.
+  </div>
+  <div class="row">
+    <button class={rsmods?.installed ? "" : "primary"} disabled={busy} onclick={installRsmods}>
+      {rsmods?.installed ? "Neueste Version installieren …" : "RSMods installieren …"}
+    </button>
+    {#if rsmods?.gui}
+      <button class="primary" disabled={busy} onclick={() => run("RSMods wird geöffnet …", () => api.openRsmodsGui())}>
+        RSMods öffnen (Fast Load einschalten)
+      </button>
+    {/if}
+    <button disabled={busy} onclick={loadRsmods}>Neu prüfen</button>
+  </div>
+</section>
 
 <style>
   .head h2 {

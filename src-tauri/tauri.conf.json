@@ -23,7 +23,20 @@
   },
   "bundle": {
     "active": true,
-    "targets": "all",
+    "targets": ["nsis"],
+    "publisher": "Maik Schultheiß",
+    "copyright": "© 2026 Maik Schultheiß – MIT-Lizenz",
+    "category": "Music",
+    "shortDescription": "Setup-, Mod- und CDLC-Manager für Rocksmith 2014 Remastered",
+    "longDescription": "Richtet Rocksmith 2014 Remastered für moderne Hardware ein: Audio-Interfaces über RS_ASIO, Skalierungs-Fix, eigene Songs (CDLC), Updates und Rollback. Inoffizielles Community-Projekt, nicht mit Ubisoft verbunden.",
+    "homepage": "https://github.com/maniacmaik99/GuitarStar",
+    "windows": {
+      "nsis": {
+        "installMode": "currentUser",
+        "languages": ["German", "English"],
+        "displayLanguageSelector": false
+      }
+    },
     "icon": [
       "icons/32x32.png",
       "icons/128x128.png",

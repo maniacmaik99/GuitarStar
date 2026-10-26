@@ -1,0 +1,44 @@
+name: Release
+
+# Builds the Windows installer and attaches it to a GitHub release.
+# Start it by pushing a version tag, e.g.:  git tag v0.1.0 && git push origin v0.1.0
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+      - run: npm ci
+      - uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tagName: ${{ github.ref_name }}
+          releaseName: GuitarStar ${{ github.ref_name }}
+          releaseBody: |
+            ## Installation
+
+            1. **`GuitarStar_…_x64-setup.exe`** unten unter „Assets“ herunterladen und starten.
+            2. Windows zeigt eventuell „Der Computer wurde durch Windows geschützt“, weil das Programm (noch) nicht signiert ist: **Weitere Informationen → Trotzdem ausführen**.
+            3. GuitarStar starten und den Rocksmith-Ordner auswählen.
+
+            Voraussetzung: Rocksmith 2014 Edition – Remastered (Steam). Rust, Node.js o. Ä. werden **nicht** gebraucht.
+
+            Alle Änderungen am Spielordner lassen sich in GuitarStar unter „Verlauf“ zurücknehmen.
+          releaseDraft: false
+          prerelease: true

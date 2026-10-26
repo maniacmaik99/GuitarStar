@@ -154,6 +154,17 @@ export interface DownloadReport {
   error: string | null;
 }
 
+export interface OutputDevice {
+  name: string;
+  device: string | null;
+  bluetooth: boolean;
+}
+
+export interface RsModsStatus {
+  installed: boolean;
+  gui: string | null;
+}
+
 /** An area of the main window in CSS pixels. */
 export interface Bounds {
   x: number;
@@ -188,6 +199,10 @@ export const api = {
   customsforgeBounds: (b: Bounds) => invoke<void>("customsforge_bounds", { ...b }),
   hideCustomsforge: () => invoke<void>("hide_customsforge"),
   setHideAds: (enabled: boolean) => invoke<void>("set_hide_ads", { enabled }),
+  defaultOutputDevice: () => invoke<OutputDevice | null>("default_output_device"),
+  rsmodsStatus: () => invoke<RsModsStatus>("rsmods_status"),
+  installRsmods: () => invoke<string>("install_rsmods"),
+  openRsmodsGui: () => invoke<void>("open_rsmods_gui"),
   customsforgeNavigate: (action: "back" | "forward" | "reload" | "home") =>
     invoke<void>("customsforge_navigate", { action }),
 };

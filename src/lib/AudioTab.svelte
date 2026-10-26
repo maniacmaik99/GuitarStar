@@ -1,11 +1,20 @@
 <script lang="ts">
   import { onMount } from "svelte";
-  import { api, type AsioDriver, type AudioConfig, type DeviceProfile, type Overview, type Runner } from "$lib/api";
+  import {
+    api,
+    type AsioDriver,
+    type AudioConfig,
+    type DeviceProfile,
+    type OutputDevice,
+    type Overview,
+    type Runner,
+  } from "$lib/api";
 
   let { ov, run, busy, gotoComponents }: { ov: Overview; run: Runner; busy: boolean; gotoComponents: () => void } =
     $props();
 
   let drivers = $state<AsioDriver[]>([]);
+  let windowsOutput = $state<OutputDevice | null>(null);
   let profiles = $state<DeviceProfile[]>([]);
   let loaded = $state(false);
   let form = $state<AudioConfig>(emptyConfig());
@@ -55,6 +64,7 @@
 
   onMount(async () => {
     [drivers, profiles] = await Promise.all([api.listAsioDrivers(), api.listProfiles()]);
+    windowsOutput = await api.defaultOutputDevice().catch(() => null);
     if (ov.state.audio) form = { ...ov.state.audio };
     else if (suitable.length) applyProfile(suitable[0].id);
     else if (drivers.length) form.driver = drivers[0].name;
@@ -198,6 +208,18 @@
         <div class="muted">RS_ASIO zeigt beim Start eine Auswahl zwischen Interface und Windows.</div>
       </div>
     </label>
+    {#if form.output_mode !== "asio" && windowsOutput}
+      <div class="device" class:warn={windowsOutput.bluetooth}>
+        Windows-Ausgabe: <strong>{windowsOutput.name}</strong>{windowsOutput.device ? ` (${windowsOutput.device})` : ""}
+        <button class="link" onclick={async () => (windowsOutput = await api.defaultOutputDevice())}>neu prüfen</button>
+        {#if windowsOutput.bluetooth}
+          <p>
+            Das ist ein Bluetooth-Gerät. Spielton und deine Gitarre kommen damit 0,2–0,5 s verzögert an – zum Spielen
+            merklich. Besser: Kopfhörer per Kabel an das Interface, oder Lautsprecher/Monitor als Windows-Ausgabe.
+          </p>
+        {/if}
+      </div>
+    {/if}
   </section>
 
   {#if ov.settings?.exclusive_mode && ov.state.audio && ov.state.audio.output_mode !== "asio"}
@@ -235,6 +257,19 @@
   }
   .option input {
     margin-top: 4px;
+  }
+  .device {
+    margin-top: 6px;
+    padding: 8px 12px;
+    border-radius: 6px;
+    border: 1px solid var(--border);
+    background: var(--panel-2);
+  }
+  .device.warn {
+    border-color: var(--warn);
+  }
+  .device p {
+    margin: 6px 0 0;
   }
   .hint {
     padding: 8px 12px;

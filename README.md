@@ -14,6 +14,8 @@ Rocksmith 2014 läuft auf aktueller Hardware oft nur mit Bastelei: Audio-Interfa
 - **Kein Minimieren bei Fokusverlust** (optional): Im Vollbild-Fenster bleibt das Spiel sichtbar, wenn du auf einen zweiten Monitor klickst.
 - **Eigene Songs (CDLC):** CustomsForge im eingebauten Fenster – heruntergeladene Songs werden automatisch installiert. Dazu Drag & Drop für `.psarc`/`.zip`, Suche, Aktivieren/Deaktivieren und Löschen. GuitarStar arbeitet nur im Unterordner `dlc\GuitarStar`; die offiziellen Songs bleiben unberührt. Der CDLC-Enabler von CustomsForge lässt sich direkt aus der App installieren.
   Die Werbung auf CustomsForge wird von CustomsForge geschaltet und finanziert die Seite mit; sie lässt sich unter „Einstellungen“ ausblenden (standardmäßig aus).
+- **RSMods (optional):** Installation des offiziellen RSMods-Installers mit vorheriger Sicherung; darüber u. a. **Fast Load**, das die Intro-Logos beim Start überspringt.
+- **Discord & Streaming:** Bei Tonausgabe über Windows läuft Rocksmith im geteilten Modus, sodass Discord parallel funktioniert und den Spielton übertragen kann. Der Audio-Tab zeigt das Windows-Ausgabegerät und warnt bei Bluetooth.
 - **Spieleinstellungen:** Auflösung, Anzeigemodus, Latenzpuffer, exklusiver Audiomodus.
 - **Komponenten mit Updates und Rollback:** Versionen kommen direkt von den offiziellen GitHub-Releases (mit Prüfsummen-Check), jede installierte Version bleibt offline verfügbar.
 - **Verlauf:** Vor jeder Änderung werden die betroffenen Dateien gesichert. Jede Änderung lässt sich zurücknehmen, auch komplett bis zum Originalzustand.
@@ -21,12 +23,13 @@ Rocksmith 2014 läuft auf aktueller Hardware oft nur mit Bastelei: Audio-Interfa
 ### Geplant
 
 - Song-Infos direkt aus den Dateien (Stimmung, Pfade, Länge)
-- RSMods als optionale Komponente
 - Linux / Steam Deck (Proton, wineasio)
 
 ## Installation
 
-Es gibt noch keine fertigen Releases. Bis dahin: selbst bauen (siehe unten).
+**[Neueste Version herunterladen](https://github.com/maniacmaik99/GuitarStar/releases)** – unter „Assets“ die Datei `GuitarStar_…_x64-setup.exe` laden und starten. Rust, Node.js o. Ä. werden dafür nicht gebraucht.
+
+Das Setup ist (noch) nicht signiert, deshalb warnt Windows SmartScreen beim ersten Start: **Weitere Informationen → Trotzdem ausführen**.
 
 Voraussetzungen zum Spielen:
 - Rocksmith 2014 Edition – Remastered in der **Steam-Version**
