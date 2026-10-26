@@ -1,6 +1,6 @@
 [package]
 name = "guitarstar"
-version = "0.1.0"
+version = "0.2.0"
 description = "Rocksmith 2014 Remastered setup, mod and CDLC manager"
 authors = ["Maik Schultheiß"]
 license = "MIT"
@@ -30,6 +30,8 @@ serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 tokio = { version = "1", features = ["sync"] }
 guitarstar_core = { path = "core" }
+tauri-plugin-updater = "2.14.0"
+tauri-plugin-process = "2.4.0"
 
 [workspace]
 members = [".", "core"]

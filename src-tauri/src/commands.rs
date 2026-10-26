@@ -377,20 +377,36 @@ fn apply_restored_state(ctx: &Ctx, restored: serde_json::Value) -> Result<()> {
     ctx.save_state(s)
 }
 
+/// Writes the DLL options from `s` and records the ini as part of the fix,
+/// so removing the fix removes it too.
+fn apply_dll_config(ctx: &Ctx, mut s: AppState, label: &str) -> Result<()> {
+    let Some(fix) = s.installed.get_mut(components::DPI_FIX_ID) else {
+        return Err(AppError::msg("Bitte zuerst den Skalierungs-Fix installieren."));
+    };
+    let cfg = game::DllConfig { keep_visible: s.keep_visible, log: s.dll_log };
+    ctx.change_game_files(label, |game, w| game::write_dll_config(game, cfg, w))?;
+    if !fix.files.iter().any(|f| f == game::GUITARSTAR_INI) {
+        fix.files.push(game::GUITARSTAR_INI.to_string());
+    }
+    ctx.save_state(s)
+}
+
 #[tauri::command]
 pub async fn set_keep_visible(ctx: State<'_, Ctx>, enabled: bool) -> Result<()> {
     let _op = ctx.op.lock().await;
     let mut s = ctx.state();
-    let Some(fix) = s.installed.get_mut(components::DPI_FIX_ID) else {
-        return Err(AppError::msg("Bitte zuerst den Skalierungs-Fix installieren."));
-    };
-    let label = if enabled { "Minimieren bei Fokusverlust aus" } else { "Minimieren bei Fokusverlust an" };
-    ctx.change_game_files(label, |game, w| game::write_window_config(game, enabled, false, w))?;
-    if !fix.files.iter().any(|f| f == game::GUITARSTAR_INI) {
-        fix.files.push(game::GUITARSTAR_INI.to_string());
-    }
     s.keep_visible = enabled;
-    ctx.save_state(s)
+    let label = if enabled { "Minimieren bei Fokusverlust aus" } else { "Minimieren bei Fokusverlust an" };
+    apply_dll_config(&ctx, s, label)
+}
+
+#[tauri::command]
+pub async fn set_dll_log(ctx: State<'_, Ctx>, enabled: bool) -> Result<()> {
+    let _op = ctx.op.lock().await;
+    let mut s = ctx.state();
+    s.dll_log = enabled;
+    let label = if enabled { "Diagnose-Protokolle an" } else { "Diagnose-Protokolle aus" };
+    apply_dll_config(&ctx, s, label)
 }
 
 #[tauri::command]

@@ -8,6 +8,7 @@
   import SongsTab from "$lib/SongsTab.svelte";
   import BrowserLayer from "$lib/BrowserLayer.svelte";
   import SettingsTab from "$lib/SettingsTab.svelte";
+  import UpdateBanner from "$lib/UpdateBanner.svelte";
   import HistoryTab from "$lib/HistoryTab.svelte";
 
   type Tab = "game" | "audio" | "songs" | "components" | "history" | "settings";
@@ -67,7 +68,7 @@
 
 <div class="app">
   <header>
-    <div class="brand">GuitarStar</div>
+    <div class="brand"><img src="/favicon.png" alt="" />GuitarStar</div>
     {#if ov?.game}
       <div class="gamepath" title={ov.game.path}>
         <span class="dot ok"></span>{ov.game.path}
@@ -75,6 +76,8 @@
       </div>
     {/if}
   </header>
+
+  <UpdateBanner />
 
   {#if error}
     <div class="banner error" role="alert">
@@ -258,9 +261,16 @@
     gap: 16px;
   }
   .brand {
+    display: flex;
+    align-items: center;
+    gap: 10px;
     font-size: 1.4rem;
     font-weight: 700;
     color: var(--accent);
+  }
+  .brand img {
+    width: 30px;
+    height: 30px;
   }
   .gamepath {
     color: var(--muted);

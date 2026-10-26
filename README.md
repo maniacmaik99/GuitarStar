@@ -31,6 +31,8 @@ Rocksmith 2014 läuft auf aktueller Hardware oft nur mit Bastelei: Audio-Interfa
 
 Das Setup ist (noch) nicht signiert, deshalb warnt Windows SmartScreen beim ersten Start: **Weitere Informationen → Trotzdem ausführen**.
 
+Ab Version 0.2.0 meldet GuitarStar neue Versionen selbst und aktualisiert sich per Klick. Updates sind signiert; die App installiert nur Updates mit gültiger Signatur.
+
 Voraussetzungen zum Spielen:
 - Rocksmith 2014 Edition – Remastered in der **Steam-Version**
 - für Audio-Interfaces: der ASIO-Treiber des Herstellers (z. B. „Focusrite Control“) – Rocksmith braucht die **32-Bit**-Variante, die die meisten Treiber mitinstallieren
@@ -59,6 +61,14 @@ Die mitgelieferte `dinput8.dll` liegt fertig gebaut unter `src-tauri/core/assets
 rustup target add i686-pc-windows-msvc
 powershell -File native/dpi-fix/build.ps1
 ```
+
+### Neue Version veröffentlichen
+
+1. Version in `package.json`, `src-tauri/Cargo.toml` und `src-tauri/tauri.conf.json` erhöhen.
+2. Committen, dann Tag pushen: `git tag v0.3.0 && git push origin v0.3.0`.
+3. Der Workflow „Release“ baut das Setup, signiert das Update und veröffentlicht beides.
+
+Einmalig nötig: der Signaturschlüssel als GitHub-Secret (`scripts/set-release-secrets.ps1`). Der Schlüssel liegt unter `~/.tauri/guitarstar.key` und muss gesichert werden – ohne ihn können installierte Versionen keine Updates mehr bekommen.
 
 ## Aufbau
 

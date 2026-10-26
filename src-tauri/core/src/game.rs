@@ -110,14 +110,23 @@ pub fn write_settings(dir: &Path, s: &GameSettings, snapshot: &mut SnapshotWrite
 /// Settings file read by GuitarStar's dinput8.dll at game start.
 pub const GUITARSTAR_INI: &str = "GuitarStar.ini";
 
-/// Writes the window options for the DLL. `log` makes it record focus messages
-/// in `GuitarStar-window.log`.
-pub fn write_window_config(dir: &Path, keep_visible: bool, log: bool, snapshot: &mut SnapshotWriter) -> Result<()> {
+/// Options for GuitarStar's dinput8.dll.
+#[derive(Debug, Clone, Copy)]
+pub struct DllConfig {
+    pub keep_visible: bool,
+    /// Record window and video events in `GuitarStar-window.log`, for diagnosis.
+    pub log: bool,
+}
+
+/// Writes `GuitarStar.ini` for the DLL, keeping keys GuitarStar does not manage.
+pub fn write_dll_config(dir: &Path, cfg: DllConfig, snapshot: &mut SnapshotWriter) -> Result<()> {
+    let flag = |b: bool| if b { "1" } else { "0" };
     let path = dir.join(GUITARSTAR_INI);
     let original = fs::read_to_string(&path).unwrap_or_default();
     let mut doc = IniDoc::parse(&original);
-    doc.set("Window", "KeepVisible", if keep_visible { "1" } else { "0" });
-    doc.set("Window", "Log", if log { "1" } else { "0" });
+    doc.set("Window", "KeepVisible", flag(cfg.keep_visible));
+    doc.set("Window", "Log", flag(cfg.log));
+    doc.set("Video", "Log", flag(cfg.log));
     let rendered = doc.render();
     if rendered != original {
         snapshot.protect(GUITARSTAR_INI)?;

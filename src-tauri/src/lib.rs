@@ -6,6 +6,8 @@ pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_updater::Builder::new().build())
+        .plugin(tauri_plugin_process::init())
         .setup(|app| {
             let data_dir = app.path().app_data_dir()?;
             app.manage(commands::Ctx::new(data_dir));
@@ -28,6 +30,7 @@ pub fn run() {
             commands::monitor_sizes,
             commands::set_dpi_override,
             commands::set_keep_visible,
+            commands::set_dll_log,
             commands::cdlc_overview,
             commands::cdlc_import,
             commands::cdlc_set_enabled,

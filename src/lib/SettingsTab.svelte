@@ -4,6 +4,8 @@
 
   let { ov, run, busy }: { ov: Overview; run: Runner; busy: boolean } = $props();
 
+  let fixInstalled = $derived(!!ov.state.installed["dpi_fix"]);
+
   function setHideAds(enabled: boolean) {
     run(
       "Wird gespeichert …",
@@ -43,6 +45,25 @@
   <p class="muted small">
     Gilt ab dem nächsten Öffnen von CustomsForge. Du bleibst dabei eingeloggt. Falls nach einer Änderung der Seite
     doch Werbung durchrutscht oder etwas fehlt, gib bitte auf GitHub Bescheid.
+  </p>
+</section>
+
+<section class="card">
+  <h2>Fehlersuche</h2>
+  <label class="row toggle">
+    <input
+      type="checkbox"
+      checked={ov.state.dll_log}
+      disabled={busy || !fixInstalled}
+      onchange={(e) =>
+        run("Wird gespeichert …", () => api.setDllLog(e.currentTarget.checked), "Gilt ab dem nächsten Spielstart.")}
+    />
+    Diagnose-Protokolle des Skalierungs-Fix schreiben
+  </label>
+  <p class="muted small">
+    Schreibt beim Spielen Fenster- und Video-Ereignisse in GuitarStar-window.log im Spielordner. Nur für die
+    Fehlersuche nötig – sonst aus lassen.
+    {#if !fixInstalled}Erst verfügbar, wenn der Skalierungs-Fix installiert ist.{/if}
   </p>
 </section>
 

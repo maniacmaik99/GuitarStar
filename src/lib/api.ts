@@ -108,6 +108,7 @@ export interface AppState {
   dpi_override: boolean;
   keep_visible: boolean;
   hide_ads: boolean;
+  dll_log: boolean;
 }
 
 export interface Overview {
@@ -190,6 +191,7 @@ export const api = {
   monitorSizes: () => invoke<MonitorSize[]>("monitor_sizes"),
   setDpiOverride: (enabled: boolean) => invoke<void>("set_dpi_override", { enabled }),
   setKeepVisible: (enabled: boolean) => invoke<void>("set_keep_visible", { enabled }),
+  setDllLog: (enabled: boolean) => invoke<void>("set_dll_log", { enabled }),
   cdlcOverview: () => invoke<CdlcOverview>("cdlc_overview"),
   cdlcImport: (paths: string[]) => invoke<ImportResult>("cdlc_import", { paths }),
   cdlcSetEnabled: (name: string, enabled: boolean) => invoke<void>("cdlc_set_enabled", { name, enabled }),
