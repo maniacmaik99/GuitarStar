@@ -1,0 +1,13 @@
+# Rocksmith is a 32-bit game. Built without the C runtime and linked with the
+# lld that ships with Rust, so no Visual Studio or 32-bit MinGW is needed.
+[build]
+target = "i686-pc-windows-msvc"
+
+[target.i686-pc-windows-msvc]
+linker = "rust-lld"
+rustflags = [
+    "-C", "linker-flavor=lld-link",
+    "-C", "link-arg=/NODEFAULTLIB",
+    "-C", "link-arg=/ENTRY:DllMain",
+    "-C", "link-arg=/SUBSYSTEM:WINDOWS",
+]

@@ -1,0 +1,23 @@
+[package]
+name = "gs_dpifix"
+version = "1.0.0"
+description = "dinput8.dll proxy that makes Rocksmith 2014 DPI aware"
+edition = "2024"
+
+[lib]
+# The game loads dinput8.dll at startup; the output must carry that name.
+name = "dinput8"
+crate-type = ["cdylib"]
+
+[profile.release]
+panic = "abort"
+opt-level = "s"
+lto = true
+codegen-units = 1
+strip = true
+
+[profile.dev]
+panic = "abort"
+
+# Not part of the app workspace: this builds for 32-bit Windows only.
+[workspace]

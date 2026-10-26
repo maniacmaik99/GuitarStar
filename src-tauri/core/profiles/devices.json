@@ -1,0 +1,162 @@
+[
+  {
+    "id": "focusrite-scarlett-solo-gen2-3",
+    "name": "Focusrite Scarlett Solo (2./3. Gen)",
+    "driver": "Focusrite USB ASIO",
+    "output_base_channel": 0,
+    "input_channel": 1,
+    "buffer_size_mode": "custom",
+    "custom_buffer_size": 48,
+    "notes": "Bei verzerrtem Ton die Puffergröße auf 96 oder 192 erhöhen.",
+    "source": "https://github.com/mdias/rs_asio/tree/master/docs/focusrite_solo_2-3"
+  },
+  {
+    "id": "focusrite-scarlett-solo-gen4",
+    "name": "Focusrite Scarlett Solo (4. Gen)",
+    "driver": "Focusrite USB ASIO",
+    "output_base_channel": 0,
+    "input_channel": 0,
+    "buffer_size_mode": "custom",
+    "custom_buffer_size": 48,
+    "notes": "Bei verzerrtem Ton die Puffergröße auf 96 oder 192 erhöhen.",
+    "source": "https://github.com/mdias/rs_asio/tree/master/docs/focusrite_solo_4"
+  },
+  {
+    "id": "focusrite-scarlett-18i8-gen2",
+    "name": "Focusrite Scarlett 18i8 (2. Gen)",
+    "driver": "Focusrite USB ASIO",
+    "output_base_channel": 0,
+    "input_channel": 0,
+    "second_input_channel": 1,
+    "buffer_size_mode": "host",
+    "custom_buffer_size": 144,
+    "source": "https://github.com/mdias/rs_asio/tree/master/docs/focusrite_scarlett_18i8_2nd_gen_OR_asio_link_pro"
+  },
+  {
+    "id": "audient-evo",
+    "name": "Audient EVO 4 / EVO 16",
+    "driver": "Audient USB Audio ASIO Driver",
+    "output_base_channel": 0,
+    "input_channel": 0,
+    "buffer_size_mode": "driver",
+    "source": "https://github.com/mdias/rs_asio/tree/master/docs/audient_evo_4"
+  },
+  {
+    "id": "steinberg-ur12-ur22",
+    "name": "Steinberg UR12 / UR22 / UR22mkII",
+    "driver": "Yamaha Steinberg USB ASIO",
+    "output_base_channel": 0,
+    "input_channel": 0,
+    "second_input_channel": 1,
+    "buffer_size_mode": "driver",
+    "source": "https://github.com/mdias/rs_asio/tree/master/docs/steinberg_ur12"
+  },
+  {
+    "id": "universal-audio-volt1",
+    "name": "Universal Audio Volt 1",
+    "driver": "Universal Audio Volt",
+    "output_base_channel": 0,
+    "input_channel": 0,
+    "buffer_size_mode": "custom",
+    "custom_buffer_size": 48,
+    "source": "https://github.com/mdias/rs_asio/tree/master/docs/universal_audio_volt1"
+  },
+  {
+    "id": "universal-audio-volt276",
+    "name": "Universal Audio Volt 2 / 276",
+    "driver": "Universal Audio Volt",
+    "output_base_channel": 0,
+    "input_channel": 0,
+    "second_input_channel": 1,
+    "buffer_size_mode": "driver",
+    "source": "https://github.com/mdias/rs_asio/tree/master/docs/universal_audio_volt_276"
+  },
+  {
+    "id": "irig-pro-duo-io",
+    "name": "IK Multimedia iRig Pro Duo I/O",
+    "driver": "iRig Device",
+    "output_base_channel": 0,
+    "input_channel": 0,
+    "buffer_size_mode": "custom",
+    "custom_buffer_size": 64,
+    "source": "https://github.com/mdias/rs_asio/tree/master/docs/irig_pro_duo_io"
+  },
+  {
+    "id": "midiplus-studio-s",
+    "name": "MIDIPLUS Studio S",
+    "driver": "Midiplus Studio USB",
+    "output_base_channel": 0,
+    "input_channel": 1,
+    "buffer_size_mode": "custom",
+    "custom_buffer_size": 64,
+    "source": "https://github.com/mdias/rs_asio/tree/master/docs/midiplus_studio_s"
+  },
+  {
+    "id": "roland-ua55",
+    "name": "Roland UA-55 Quad-Capture",
+    "driver": "QUAD CAPTURE",
+    "output_base_channel": 0,
+    "input_channel": 0,
+    "buffer_size_mode": "driver",
+    "source": "https://github.com/mdias/rs_asio/tree/master/docs/roland_ua_55"
+  },
+  {
+    "id": "boss-katana-mk2",
+    "name": "BOSS Katana MkII",
+    "driver": "KATANA",
+    "output_base_channel": 0,
+    "input_channel": 2,
+    "buffer_size_mode": "driver",
+    "source": "https://github.com/mdias/rs_asio/tree/master/docs/katana_mk2"
+  },
+  {
+    "id": "boss-gcs-8",
+    "name": "BOSS Gigcaster 8 (GCS-8)",
+    "driver": "GCS-8",
+    "output_base_channel": 0,
+    "input_channel": 4,
+    "buffer_size_mode": "driver",
+    "source": "https://github.com/mdias/rs_asio/tree/master/docs/boss_gcs_8"
+  },
+  {
+    "id": "asus-strix-soar",
+    "name": "Asus Strix Soar (Soundkarte)",
+    "driver": "STRIX SOUND CARD ASIO",
+    "output_only": true,
+    "output_base_channel": 0,
+    "input_channel": 0,
+    "buffer_size_mode": "driver",
+    "notes": "Nur Ausgabe über ASIO; der Instrumenteneingang läuft weiter über Windows (z. B. Rocksmith-Kabel).",
+    "source": "https://github.com/mdias/rs_asio/tree/master/docs/asus_strix_soar"
+  },
+  {
+    "id": "behringer-mic2usb-asio4all",
+    "name": "Behringer MIC2 USB (über ASIO4ALL)",
+    "driver": "ASIO4ALL v2",
+    "output_base_channel": 0,
+    "input_channel": 0,
+    "buffer_size_mode": "custom",
+    "custom_buffer_size": 192,
+    "source": "https://github.com/mdias/rs_asio/tree/master/docs/behringer_mic2usb"
+  },
+  {
+    "id": "fifine-ampli1-asio4all",
+    "name": "Fifine Ampli1 (über ASIO4ALL)",
+    "driver": "ASIO4ALL v2",
+    "output_base_channel": 0,
+    "input_channel": 1,
+    "buffer_size_mode": "driver",
+    "enable_ref_count_hack": false,
+    "source": "https://github.com/mdias/rs_asio/tree/master/docs/fifine_ampli1"
+  },
+  {
+    "id": "roland-ua5-asio4all",
+    "name": "Roland Edirol UA-5 (über ASIO4ALL)",
+    "driver": "ASIO4ALL v2",
+    "output_base_channel": 2,
+    "alt_base_channel": 1,
+    "input_channel": 3,
+    "buffer_size_mode": "driver",
+    "source": "https://github.com/mdias/rs_asio/tree/master/docs/roland_ua_5_usb"
+  }
+]
