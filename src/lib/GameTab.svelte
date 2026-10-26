@@ -210,10 +210,10 @@
         </label>
       </div>
       {#if ov.state.keep_visible && form.fullscreen === 2}
-        <p class="muted small">
-          Im exklusiven Vollbild muss sich das Spiel beim Fokusverlust minimieren; die Option wirkt im Fenster und im
-          Vollbild (Fenster).
-        </p>
+        <div class="hint">
+          Im exklusiven Vollbild minimiert DirectX das Spiel beim Fokusverlust immer – das lässt sich nicht verhindern.
+          Für zwei Monitore „Vollbild (Fenster)“ wählen; dank Skalierungs-Fix sieht es genauso aus.
+        </div>
       {/if}
     {/if}
     {#if scale > 1 && !fixInstalled}
@@ -274,5 +274,11 @@
   }
   .small {
     font-size: 0.85rem;
+  }
+  .hint {
+    padding: 8px 12px;
+    border-radius: 6px;
+    border: 1px solid var(--warn);
+    margin: 8px 0;
   }
 </style>

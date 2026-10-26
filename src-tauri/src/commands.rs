@@ -378,8 +378,7 @@ pub async fn set_keep_visible(ctx: State<'_, Ctx>, enabled: bool) -> Result<()> 
         return Err(AppError::msg("Bitte zuerst den Skalierungs-Fix installieren."));
     };
     let label = if enabled { "Minimieren bei Fokusverlust aus" } else { "Minimieren bei Fokusverlust an" };
-    // Logging stays on while the option is new, so problems can be diagnosed from the log.
-    ctx.change_game_files(label, |game, w| game::write_window_config(game, enabled, enabled, w))?;
+    ctx.change_game_files(label, |game, w| game::write_window_config(game, enabled, false, w))?;
     if !fix.files.iter().any(|f| f == game::GUITARSTAR_INI) {
         fix.files.push(game::GUITARSTAR_INI.to_string());
     }
