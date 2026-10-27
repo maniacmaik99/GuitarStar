@@ -38,7 +38,7 @@ pub struct SnapshotWriter {
     snapshot: Snapshot,
 }
 
-fn checked_relative(rel: &str) -> Result<PathBuf> {
+pub(crate) fn checked_relative(rel: &str) -> Result<PathBuf> {
     let p = Path::new(rel);
     // ':' is checked separately: on Linux "C:/x" parses as a normal relative path,
     // and on Windows it could also address an alternate data stream.

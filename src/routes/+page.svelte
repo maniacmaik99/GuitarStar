@@ -11,6 +11,7 @@
   import UpdateBanner from "$lib/UpdateBanner.svelte";
   import HistoryTab from "$lib/HistoryTab.svelte";
   import { t, type MessageKey } from "$lib/i18n.svelte";
+  import { saves } from "$lib/saves";
 
   type Tab = "game" | "audio" | "songs" | "components" | "history" | "settings";
   const tabs: { id: Tab; label: MessageKey }[] = [
@@ -64,6 +65,8 @@
     } catch (e) {
       error = errorText(e);
     }
+    // Daily save backup in the background; a failure here must not bother the player.
+    saves.autoBackup().catch(() => {});
   });
 </script>
 
