@@ -3,6 +3,7 @@
   import { check, type Update } from "@tauri-apps/plugin-updater";
   import { relaunch } from "@tauri-apps/plugin-process";
   import { errorText } from "$lib/api";
+  import { t } from "$lib/i18n.svelte";
 
   let update = $state<Update | null>(null);
   let progress = $state<number | null>(null);
@@ -42,16 +43,16 @@
 {#if update && !dismissed}
   <div class="update">
     <div>
-      <strong>GuitarStar {update.version} ist da</strong>
-      <span class="muted">(installiert: {update.currentVersion})</span>
-      {#if error}<div class="error">Update fehlgeschlagen: {error}</div>{/if}
+      <strong>{t("update.available", { version: update.version })}</strong>
+      <span class="muted">{t("update.current", { version: update.currentVersion })}</span>
+      {#if error}<div class="error">{t("update.failed", { error })}</div>{/if}
     </div>
     <div class="row">
       {#if progress !== null}
-        <span class="muted">Wird geladen … {progress}%</span>
+        <span class="muted">{t("update.downloading", { progress })}</span>
       {:else}
-        <button class="primary" onclick={install}>Jetzt aktualisieren</button>
-        <button class="link" onclick={() => (dismissed = true)}>später</button>
+        <button class="primary" onclick={install}>{t("update.now")}</button>
+        <button class="link" onclick={() => (dismissed = true)}>{t("update.later")}</button>
       {/if}
     </div>
   </div>

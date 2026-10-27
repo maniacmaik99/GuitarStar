@@ -10,15 +10,16 @@
   import SettingsTab from "$lib/SettingsTab.svelte";
   import UpdateBanner from "$lib/UpdateBanner.svelte";
   import HistoryTab from "$lib/HistoryTab.svelte";
+  import { t, type MessageKey } from "$lib/i18n.svelte";
 
   type Tab = "game" | "audio" | "songs" | "components" | "history" | "settings";
-  const tabs: { id: Tab; label: string }[] = [
-    { id: "game", label: "Spiel" },
-    { id: "audio", label: "Audio" },
-    { id: "songs", label: "Songs" },
-    { id: "components", label: "Komponenten" },
-    { id: "history", label: "Verlauf" },
-    { id: "settings", label: "Einstellungen" },
+  const tabs: { id: Tab; label: MessageKey }[] = [
+    { id: "game", label: "app.tabGame" },
+    { id: "audio", label: "app.tabAudio" },
+    { id: "songs", label: "app.tabSongs" },
+    { id: "components", label: "app.tabComponents" },
+    { id: "history", label: "app.tabHistory" },
+    { id: "settings", label: "app.tabSettings" },
   ];
 
   let ov = $state<Overview | null>(null);
@@ -52,8 +53,8 @@
   }
 
   async function chooseFolder() {
-    const picked = await open({ directory: true, title: "Rocksmith-2014-Ordner auswählen" });
-    if (typeof picked === "string") await run("Ordner wird geprüft …", () => api.setGameDir(picked));
+    const picked = await open({ directory: true, title: t("app.chooseFolderTitle") });
+    if (typeof picked === "string") await run(t("app.checkingFolder"), () => api.setGameDir(picked));
   }
 
   onMount(async () => {
@@ -72,7 +73,7 @@
     {#if ov?.game}
       <div class="gamepath" title={ov.game.path}>
         <span class="dot ok"></span>{ov.game.path}
-        <button class="link" onclick={chooseFolder}>ändern</button>
+        <button class="link" onclick={chooseFolder}>{t("app.change")}</button>
       </div>
     {/if}
   </header>
@@ -81,12 +82,12 @@
 
   {#if error}
     <div class="banner error" role="alert">
-      {error}<button class="link" onclick={() => (error = null)}>schließen</button>
+      {error}<button class="link" onclick={() => (error = null)}>{t("common.close")}</button>
     </div>
   {/if}
   {#if notice}
     <div class="banner success">
-      {notice}<button class="link" onclick={() => (notice = null)}>schließen</button>
+      {notice}<button class="link" onclick={() => (notice = null)}>{t("common.close")}</button>
     </div>
   {/if}
   {#if busy}
@@ -94,30 +95,30 @@
   {/if}
 
   {#if !ov}
-    <p class="muted center">Lade …</p>
+    <p class="muted center">{t("app.loading")}</p>
   {:else if !ov.game}
     <section class="card setup">
-      <h1>Willkommen bei GuitarStar</h1>
-      <p>Wähle zuerst deinen Rocksmith-2014-Ordner aus. GuitarStar ändert dort nur Dateien, die es vorher gesichert hat.</p>
+      <h1>{t("app.welcome")}</h1>
+      <p>{t("app.intro")}</p>
       {#if detected.length}
-        <p class="muted">Gefundene Installationen:</p>
+        <p class="muted">{t("app.detected")}</p>
         {#each detected as path}
-          <button class="choice" disabled={!!busy} onclick={() => run("Ordner wird geprüft …", () => api.setGameDir(path))}>
+          <button class="choice" disabled={!!busy} onclick={() => run(t("app.checkingFolder"), () => api.setGameDir(path))}>
             {path}
           </button>
         {/each}
       {:else}
-        <p class="muted">Über Steam wurde keine Installation gefunden.</p>
+        <p class="muted">{t("app.noneDetected")}</p>
       {/if}
-      <button class="primary" disabled={!!busy} onclick={chooseFolder}>Ordner auswählen …</button>
+      <button class="primary" disabled={!!busy} onclick={chooseFolder}>{t("app.chooseFolder")}</button>
     </section>
   {:else}
     {#if ov.game.problems.length}
       <div class="banner warn">{ov.game.problems.join(" ")}</div>
     {/if}
     <nav>
-      {#each tabs as t}
-        <button class:active={tab === t.id} onclick={() => (tab = t.id)}>{t.label}</button>
+      {#each tabs as item}
+        <button class:active={tab === item.id} onclick={() => (tab = item.id)}>{t(item.label)}</button>
       {/each}
     </nav>
     <main>

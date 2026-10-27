@@ -12,6 +12,7 @@
     type RsModsStatus,
     type Runner,
   } from "$lib/api";
+  import { locale, t } from "$lib/i18n.svelte";
 
   let { ov, run, busy }: { ov: Overview; run: Runner; busy: boolean } = $props();
 
@@ -21,11 +22,11 @@
 
   async function installRsmods() {
     const ok = await ask(
-      "GuitarStar lädt den offiziellen RSMods-Installer von GitHub (Lovrom8/RSMods) und startet ihn. Vorher werden xinput1_3.dll, RSMods.ini und cache.psarc gesichert. Weiter?",
-      { title: "RSMods installieren", kind: "info" },
+      t("components.rsmodsConfirm"),
+      { title: t("components.rsmodsConfirmTitle"), kind: "info" },
     );
     if (ok) {
-      await run("RSMods-Installer wird geladen …", () => api.installRsmods(), "Installer gestartet. Danach hier „Neu prüfen“ klicken.");
+      await run(t("components.rsmodsLoading"), () => api.installRsmods(), t("common.installerStarted"));
     }
   }
 
@@ -47,11 +48,15 @@
   }
 
   function install(c: ComponentStatus, version: string) {
-    run(`${c.name} ${version} wird installiert …`, () => api.installComponent(c.id, version), `${c.name} ${version} ist installiert.`);
+    run(
+      t("components.installing", { name: c.name, version }),
+      () => api.installComponent(c.id, version),
+      t("components.installedDone", { name: c.name, version }),
+    );
   }
 
   function uninstall(c: ComponentStatus) {
-    run(`${c.name} wird entfernt …`, () => api.uninstallComponent(c.id), `${c.name} wurde entfernt.`);
+    run(t("components.removing", { name: c.name }), () => api.uninstallComponent(c.id), t("components.removed", { name: c.name }));
   }
 
   /** Online releases plus cached versions that are no longer listed online. */
@@ -70,55 +75,52 @@
     <div class="row head">
       <h2>{c.name}</h2>
       {#if c.installed}
-        <span class="badge ok">installiert: {c.installed.version}</span>
+        <span class="badge ok">{t("components.installedBadge", { version: c.installed.version })}</span>
         {#if latest && latest.version !== c.installed.version}
-          <span class="badge warn">Update: {latest.version}</span>
+          <span class="badge warn">{t("components.updateBadge", { version: latest.version })}</span>
         {/if}
       {:else}
-        <span class="badge">nicht installiert</span>
+        <span class="badge">{t("common.notInstalled")}</span>
       {/if}
     </div>
     <p class="muted">{c.description}</p>
     <p class="muted small">
       {#if c.repo}
-        Quelle: <button class="link inline" onclick={() => openUrl(`https://github.com/${c.repo}`)}>github.com/{c.repo}</button>
+        {t("components.source")} <button class="link inline" onclick={() => openUrl(`https://github.com/${c.repo}`)}>github.com/{c.repo}</button>
       {:else}
-        In GuitarStar enthalten (Version {c.bundled_version})
+        {t("components.bundled", { version: c.bundled_version ?? "" })}
       {/if}
     </p>
 
     {#if c.conflicts.length}
-      <div class="hint">
-        Im Spielordner liegt bereits eine andere {c.conflicts.join(", ")} (vermutlich von einem anderen Mod). Beim
-        Installieren wird sie gesichert und ersetzt; über den Verlauf lässt sie sich zurückholen.
-      </div>
+      <div class="hint">{t("components.conflict", { files: c.conflicts.join(", ") })}</div>
     {/if}
 
     {#if c.installed && !c.files_present}
-      <div class="hint">
-        Dateien fehlen im Spielordner, vermutlich hat Steam die Spieldateien überprüft. Installiere die Version erneut.
-      </div>
+      <div class="hint">{t("components.filesMissing")}</div>
     {/if}
 
     <div class="row">
       {#if c.bundled_version && c.installed?.version !== c.bundled_version}
         <button class="primary" disabled={busy} onclick={() => install(c, c.bundled_version!)}>
-          {c.installed ? `Auf ${c.bundled_version} aktualisieren` : "Installieren"}
+          {c.installed ? t("components.updateTo", { version: c.bundled_version }) : t("common.install")}
         </button>
       {/if}
       {#if c.repo && !releases[c.id]}
-        <button disabled={busy} onclick={() => loadReleases(c)}>Nach Versionen suchen</button>
+        <button disabled={busy} onclick={() => loadReleases(c)}>{t("components.searchVersions")}</button>
       {/if}
       {#if latest && latest.version !== c.installed?.version}
         <button class="primary" disabled={busy} onclick={() => install(c, latest.version)}>
-          {c.installed ? `Auf ${latest.version} aktualisieren` : `${latest.version} installieren`}
+          {c.installed
+            ? t("components.updateTo", { version: latest.version })
+            : t("components.installVersion", { version: latest.version })}
         </button>
       {/if}
       {#if c.installed && !c.files_present}
-        <button class="primary" disabled={busy} onclick={() => install(c, c.installed!.version)}>Erneut installieren</button>
+        <button class="primary" disabled={busy} onclick={() => install(c, c.installed!.version)}>{t("components.reinstall")}</button>
       {/if}
       {#if c.installed}
-        <button class="danger" disabled={busy} onclick={() => uninstall(c)}>Entfernen</button>
+        <button class="danger" disabled={busy} onclick={() => uninstall(c)}>{t("common.remove")}</button>
       {/if}
     </div>
     {#if loadError[c.id]}
@@ -129,20 +131,20 @@
       {@const list = versions(c)}
       <table>
         <thead>
-          <tr><th>Version</th><th>Veröffentlicht</th><th></th><th></th></tr>
+          <tr><th>{t("components.colVersion")}</th><th>{t("components.colPublished")}</th><th></th><th></th></tr>
         </thead>
         <tbody>
           {#each showAll[c.id] ? list : list.slice(0, 6) as v (v.version)}
             <tr class:current={v.version === c.installed?.version}>
-              <td>{v.version}{v.prerelease ? " (Vorabversion)" : ""}</td>
-              <td class="muted">{v.published ? new Date(v.published).toLocaleDateString("de-DE") : "–"}</td>
-              <td>{#if isCached(c, v.version)}<span class="badge">offline verfügbar</span>{/if}</td>
+              <td>{v.version}{v.prerelease ? t("components.prerelease") : ""}</td>
+              <td class="muted">{v.published ? new Date(v.published).toLocaleDateString(locale()) : "–"}</td>
+              <td>{#if isCached(c, v.version)}<span class="badge">{t("components.offline")}</span>{/if}</td>
               <td class="right">
                 {#if v.version === c.installed?.version}
-                  <span class="muted">aktiv</span>
+                  <span class="muted">{t("components.active")}</span>
                 {:else}
                   <button disabled={busy} onclick={() => install(c, v.version)}>
-                    {c.installed ? "Zu dieser Version wechseln" : "Installieren"}
+                    {c.installed ? t("components.switchVersion") : t("common.install")}
                   </button>
                 {/if}
               </td>
@@ -152,12 +154,12 @@
       </table>
       {#if list.length > 6}
         <button class="link" onclick={() => (showAll[c.id] = !showAll[c.id])}>
-          {showAll[c.id] ? "weniger anzeigen" : `alle ${list.length} Versionen anzeigen`}
+          {showAll[c.id] ? t("components.showLess") : t("components.showAll", { count: list.length })}
         </button>
       {/if}
     {/if}
     {#if c.installed}
-      <p class="muted small">Installiert am {formatDate(c.installed.installed_at)}</p>
+      <p class="muted small">{t("components.installedAt", { date: formatDate(c.installed.installed_at) })}</p>
     {/if}
   </section>
 {/each}
@@ -166,51 +168,45 @@
   <div class="row head">
     <h2>RSMods</h2>
     {#if rsmods?.installed}
-      <span class="badge ok">installiert</span>
+      <span class="badge ok">{t("common.installed")}</span>
     {:else}
-      <span class="badge">nicht installiert</span>
+      <span class="badge">{t("common.notInstalled")}</span>
     {/if}
     {#if rsmods?.cache_modified}
-      <span class="badge ok">Spieldatei-Mods aktiv (z. B. Fast Load)</span>
+      <span class="badge ok">{t("components.cacheModifiedBadge")}</span>
     {/if}
-    <span class="badge">optional</span>
+    <span class="badge">{t("components.optional")}</span>
   </div>
   {#if rsmods?.installed}
     <p class="small">
       {#if rsmods.cache_modified === true}
-        cache.psarc ist gegenüber dem gesicherten Original verändert – Fast Load oder ein anderer „Set And Forget“-Mod ist
-        angewendet.
+        {t("components.cacheModified")}
       {:else if rsmods.cache_modified === false}
-        cache.psarc ist noch im Originalzustand: Fast Load ist nicht angewendet. In RSMods unter „Set And Forget Mods“
-        einschalten.
+        {t("components.cacheOriginal")}
       {:else}
-        Ob Fast Load aktiv ist, lässt sich nicht prüfen: Es gibt keine von GuitarStar gesicherte Original-cache.psarc.
+        {t("components.cacheUnknown")}
       {/if}
     </p>
   {/if}
   <p class="muted">
-    Große Mod-Sammlung der Community: <strong>Fast Load</strong> (überspringt die Intro-Logos beim Start), eigene
-    Songlisten, Songs ohne Neustart neu laden, Riff Repeater über 100 %, Lautstärke per Hotkey und mehr. Eingestellt
-    wird alles in der RSMods-Oberfläche.
+    {t("components.rsmodsIntroBefore")} <strong>Fast Load</strong> {t("components.rsmodsIntroAfter")}
   </p>
   <p class="muted small">
-    Quelle: <button class="link inline" onclick={() => openUrl("https://github.com/Lovrom8/RSMods")}>github.com/Lovrom8/RSMods</button>
-    – wird mit dem offiziellen Installer eingerichtet, nicht von GuitarStar mitgeliefert.
+    {t("components.source")}
+    <button class="link inline" onclick={() => openUrl("https://github.com/Lovrom8/RSMods")}>github.com/Lovrom8/RSMods</button>
+    {t("components.rsmodsSourceNote")}
   </p>
-  <div class="hint">
-    Fast Load und einige andere Funktionen verändern die Spieldatei cache.psarc. GuitarStar sichert sie vor der
-    Installation; über „Verlauf“ lässt sich der Stand davor zurückholen. Fast Load gilt auf HDDs als instabil.
-  </div>
+  <div class="hint">{t("components.rsmodsHint")}</div>
   <div class="row">
     <button class={rsmods?.installed ? "" : "primary"} disabled={busy} onclick={installRsmods}>
-      {rsmods?.installed ? "Neueste Version installieren …" : "RSMods installieren …"}
+      {rsmods?.installed ? t("components.installLatest") : t("components.installRsmods")}
     </button>
     {#if rsmods?.gui}
-      <button class="primary" disabled={busy} onclick={() => run("RSMods wird geöffnet …", () => api.openRsmodsGui())}>
-        RSMods öffnen (Fast Load einschalten)
+      <button class="primary" disabled={busy} onclick={() => run(t("components.opening"), () => api.openRsmodsGui())}>
+        {t("components.openRsmods")}
       </button>
     {/if}
-    <button disabled={busy} onclick={loadRsmods}>Neu prüfen</button>
+    <button disabled={busy} onclick={loadRsmods}>{t("common.recheck")}</button>
   </div>
 </section>
 

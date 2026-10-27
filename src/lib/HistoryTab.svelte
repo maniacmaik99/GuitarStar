@@ -1,6 +1,7 @@
 <script lang="ts">
   import { ask } from "@tauri-apps/plugin-dialog";
   import { api, formatDate, type Overview, type Runner, type SnapshotSummary } from "$lib/api";
+  import { t } from "$lib/i18n.svelte";
 
   let { ov, run, busy }: { ov: Overview; run: Runner; busy: boolean } = $props();
 
@@ -8,30 +9,27 @@
     const count = index + 1;
     const ok = await ask(
       count === 1
-        ? `„${s.label}“ rückgängig machen?`
-        : `„${s.label}“ und die ${count - 1} späteren Änderungen rückgängig machen?`,
-      { title: "Rückgängig machen", kind: "warning" },
+        ? t("history.undoOne", { label: s.label })
+        : t("history.undoMany", { label: s.label, count: count - 1 }),
+      { title: t("history.undoTitle"), kind: "warning" },
     );
-    if (ok) run("Wird rückgängig gemacht …", () => api.restoreSnapshot(s.id), "Rückgängig gemacht.");
+    if (ok) run(t("history.undoing"), () => api.restoreSnapshot(s.id), t("history.undone"));
   }
 
   async function restoreOriginal() {
     const ok = await ask(
-      "Alle Änderungen von GuitarStar am Spielordner zurücknehmen? RS_ASIO und alle Einstellungen werden auf den Stand vor der ersten Änderung gesetzt.",
-      { title: "Originalzustand", kind: "warning" },
+      t("history.restoreConfirm"),
+      { title: t("history.originalTitle"), kind: "warning" },
     );
-    if (ok) run("Originalzustand wird wiederhergestellt …", () => api.restoreOriginal(), "Originalzustand wiederhergestellt.");
+    if (ok) run(t("history.restoring"), () => api.restoreOriginal(), t("history.restored"));
   }
 </script>
 
 <section class="card">
-  <h2>Verlauf der Änderungen</h2>
-  <p class="muted">
-    Vor jeder Änderung am Spielordner sichert GuitarStar die betroffenen Dateien. Du kannst jede Änderung samt allen
-    späteren zurücknehmen.
-  </p>
+  <h2>{t("history.title")}</h2>
+  <p class="muted">{t("history.intro")}</p>
   {#if ov.snapshots.length === 0}
-    <p>Noch keine Änderungen.</p>
+    <p>{t("history.empty")}</p>
   {:else}
     <ul>
       {#each ov.snapshots as s, i (s.id)}
@@ -39,10 +37,10 @@
           <div>
             <strong>{s.label}</strong>
             <div class="muted small">
-              {formatDate(s.created)}{s.file_count ? ` · ${s.file_count} Datei(en)` : " · Windows-Einstellung"}
+              {formatDate(s.created)}{s.file_count ? t("history.files", { count: s.file_count }) : t("history.windowsSetting")}
             </div>
           </div>
-          <button disabled={busy} onclick={() => undoTo(s, i)}>Rückgängig</button>
+          <button disabled={busy} onclick={() => undoTo(s, i)}>{t("history.undo")}</button>
         </li>
       {/each}
     </ul>
@@ -50,10 +48,10 @@
 </section>
 
 <section class="card">
-  <h2>Originalzustand</h2>
-  <p class="muted">Nimmt alle Änderungen von GuitarStar zurück, z. B. wenn das Spiel nicht mehr startet.</p>
+  <h2>{t("history.originalTitle")}</h2>
+  <p class="muted">{t("history.originalText")}</p>
   <button class="danger" disabled={busy || ov.snapshots.length === 0} onclick={restoreOriginal}>
-    Originalzustand wiederherstellen
+    {t("history.restoreButton")}
   </button>
 </section>
 
