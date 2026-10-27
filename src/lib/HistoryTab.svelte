@@ -1,17 +1,24 @@
 <script lang="ts">
   import { ask } from "@tauri-apps/plugin-dialog";
   import { api, formatDate, type Overview, type Runner, type SnapshotSummary } from "$lib/api";
-  import { t } from "$lib/i18n.svelte";
+  import { storedLabel, t } from "$lib/i18n.svelte";
   import SavesCard from "$lib/SavesCard.svelte";
 
   let { ov, run, busy }: { ov: Overview; run: Runner; busy: boolean } = $props();
+
+  /** The entry's label in the current language; `component` holds a component id. */
+  function label(s: SnapshotSummary): string {
+    const args = { ...(s.label_args ?? {}) };
+    if (args.component) args.component = ov.components.find((c) => c.id === args.component)?.name ?? args.component;
+    return storedLabel(s.label_key, args, s.label);
+  }
 
   async function undoTo(s: SnapshotSummary, index: number) {
     const count = index + 1;
     const ok = await ask(
       count === 1
-        ? t("history.undoOne", { label: s.label })
-        : t("history.undoMany", { label: s.label, count: count - 1 }),
+        ? t("history.undoOne", { label: label(s) })
+        : t("history.undoMany", { label: label(s), count: count - 1 }),
       { title: t("history.undoTitle"), kind: "warning" },
     );
     if (ok) run(t("history.undoing"), () => api.restoreSnapshot(s.id), t("history.undone"));
@@ -36,7 +43,7 @@
       {#each ov.snapshots as s, i (s.id)}
         <li>
           <div>
-            <strong>{s.label}</strong>
+            <strong>{label(s)}</strong>
             <div class="muted small">
               {formatDate(s.created)}{s.file_count ? t("history.files", { count: s.file_count }) : t("history.windowsSetting")}
             </div>

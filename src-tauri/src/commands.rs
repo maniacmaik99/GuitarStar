@@ -1,6 +1,7 @@
 //! Commands called from the UI. Every operation that changes the game folder
 //! runs under `Ctx::op`, so two clicks can never modify files at the same time.
 
+use std::collections::BTreeMap;
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::sync::{Mutex, MutexGuard};
@@ -13,10 +14,11 @@ use guitarstar_core::audio::{self, AsioDriver, AudioConfig, DeviceProfile};
 use guitarstar_core::components::{self, CachedSource, ComponentDef, ReleaseInfo};
 use guitarstar_core::error::{AppError, Result};
 use guitarstar_core::game::{self, GameInfo, GameSettings};
+use guitarstar_core::i18n::{self, Label, Lang};
 use guitarstar_core::snapshot::{SnapshotStore, SnapshotWriter};
 use guitarstar_core::state::{AppState, InstalledComponent};
 use guitarstar_core::sources::{self, PendingDownload, Sources};
-use guitarstar_core::{cdlc, display, linux, reqwest, rsmods, saves, steam};
+use guitarstar_core::{cdlc, display, linux, reqwest, rsmods, saves, steam, tr};
 
 const RS_ASIO_INI: &str = "RS_ASIO.ini";
 
@@ -30,6 +32,9 @@ pub struct Ctx {
 impl Ctx {
     pub fn new(data_dir: PathBuf) -> Self {
         let state = AppState::load(&data_dir);
+        if let Some(lang) = state.lang {
+            i18n::set_lang(lang);
+        }
         Ctx {
             data_dir,
             state: Mutex::new(state),
@@ -56,7 +61,7 @@ impl Ctx {
         self.state()
             .game_dir
             .map(PathBuf::from)
-            .ok_or_else(|| AppError::msg("Bitte zuerst den Rocksmith-Spielordner auswählen."))
+            .ok_or_else(|| AppError::msg(tr!("game.chooseFirst")))
     }
 
     fn snapshots(&self) -> SnapshotStore {
@@ -74,13 +79,10 @@ impl Ctx {
     /// Backs up every Rocksmith save before a risky action. Without a save
     /// folder there is nothing to protect; if one exists but cannot be copied,
     /// the action is aborted.
-    fn backup_saves_before(&self, label: &str) -> Result<()> {
+    fn backup_saves_before(&self, label: Label) -> Result<()> {
         for folder in saves::find_save_folders().into_iter().filter(|f| f.file_count > 0) {
-            saves::backup(Path::new(&folder.path), &self.save_backups_dir(), label, true).map_err(|e| {
-                AppError::msg(format!(
-                    "Dein Rocksmith-Spielstand konnte nicht gesichert werden, deshalb wurde abgebrochen. {e}"
-                ))
-            })?;
+            saves::backup(Path::new(&folder.path), &self.save_backups_dir(), &label, true)
+                .map_err(|e| AppError::msg(tr!("saves.backupFailed", error = e)))?;
         }
         Ok(())
     }
@@ -88,7 +90,7 @@ impl Ctx {
     /// Runs `change` inside a snapshot; on error the partial change is rolled back.
     fn change_game_files(
         &self,
-        label: &str,
+        label: Label,
         change: impl FnOnce(&Path, &mut SnapshotWriter) -> Result<()>,
     ) -> Result<()> {
         let game = self.game_dir()?;
@@ -114,15 +116,19 @@ fn now() -> u64 {
 pub struct SnapshotSummary {
     id: String,
     created: u64,
+    /// Text in the language at creation time; the UI prefers `label_key`.
     label: String,
+    label_key: Option<String>,
+    label_args: Option<BTreeMap<String, String>>,
     file_count: usize,
 }
 
 #[derive(Serialize)]
 pub struct ComponentStatus {
     id: &'static str,
-    name: &'static str,
-    description: &'static str,
+    /// Name and description in the current language.
+    name: String,
+    description: String,
     repo: Option<&'static str>,
     /// Set for components shipped inside GuitarStar.
     bundled_version: Option<&'static str>,
@@ -178,8 +184,8 @@ pub fn overview(ctx: State<'_, Ctx>) -> Result<Overview> {
             };
             ComponentStatus {
                 id: def.id,
-                name: def.name,
-                description: def.description,
+                name: def.name(),
+                description: def.description(),
                 repo: def.repo(),
                 bundled_version: match def.source {
                     components::Source::Bundled { version, .. } => Some(version),
@@ -196,7 +202,14 @@ pub fn overview(ctx: State<'_, Ctx>) -> Result<Overview> {
         .snapshots()
         .list()?
         .into_iter()
-        .map(|s| SnapshotSummary { file_count: s.files.len(), id: s.id, created: s.created, label: s.label })
+        .map(|s| SnapshotSummary {
+            file_count: s.files.len(),
+            id: s.id,
+            created: s.created,
+            label: s.label,
+            label_key: s.label_key,
+            label_args: s.label_args,
+        })
         .collect();
     Ok(Overview {
         platform: std::env::consts::OS,
@@ -207,6 +220,20 @@ pub fn overview(ctx: State<'_, Ctx>) -> Result<Overview> {
         components,
         snapshots,
     })
+}
+
+/// The UI's language: messages from here on are in it, and it is remembered
+/// for the next start.
+#[tauri::command]
+pub fn set_language(ctx: State<'_, Ctx>, lang: String) -> Result<()> {
+    let lang = Lang::parse(&lang).ok_or_else(|| AppError::msg(tr!("app.unknownLanguage", lang = lang)))?;
+    i18n::set_lang(lang);
+    let mut s = ctx.state();
+    if s.lang != Some(lang) {
+        s.lang = Some(lang);
+        ctx.save_state(s)?;
+    }
+    Ok(())
 }
 
 #[tauri::command]
@@ -232,7 +259,7 @@ pub fn set_game_dir(ctx: State<'_, Ctx>, path: String) -> Result<GameInfo> {
 #[tauri::command]
 pub async fn save_game_settings(ctx: State<'_, Ctx>, settings: GameSettings) -> Result<()> {
     let _op = ctx.op.lock().await;
-    ctx.change_game_files("Spieleinstellungen geändert", |game, w| {
+    ctx.change_game_files(Label::new("labels.gameSettings"), |game, w| {
         game::write_settings(game, &settings, w)
     })
 }
@@ -289,10 +316,10 @@ fn write_rs_asio_ini(game: &Path, template: &str, cfg: &AudioConfig, w: &mut Sna
 pub async fn apply_audio_config(ctx: State<'_, Ctx>, config: AudioConfig) -> Result<()> {
     let _op = ctx.op.lock().await;
     if !ctx.state().installed.contains_key("rs_asio") {
-        return Err(AppError::msg("Bitte zuerst RS_ASIO installieren."));
+        return Err(AppError::msg(tr!("audio.installRsAsioFirst")));
     }
     let template = rs_asio_template(&ctx);
-    ctx.change_game_files("Audio-Einstellungen geändert", |game, w| {
+    ctx.change_game_files(Label::new("labels.audioSettings"), |game, w| {
         write_rs_asio_ini(game, &template, &config, w)?;
         // RS_ASIO's recommended game settings; only possible once the game created its ini.
         // Exclusive mode would lock a Windows output device for the game alone, so
@@ -337,17 +364,20 @@ pub async fn install_component(ctx: State<'_, Ctx>, id: String, version: String)
             .await?
             .into_iter()
             .find(|r| r.version == version)
-            .ok_or_else(|| AppError::msg(format!("{} {version} wurde auf GitHub nicht gefunden.", def.name)))?;
+            .ok_or_else(|| AppError::msg(tr!("components.notOnGithub", name = def.name(), version = version)))?;
         components::download(&ctx.http, &ctx.data_dir, def, &rel).await?;
     }
     let source = components::cache_dir(&ctx.data_dir, def.id, &version);
     let state = ctx.state();
     let label = match state.installed.get(def.id) {
-        Some(prev) if prev.version != version => format!("{} {} → {version}", def.name, prev.version),
-        _ => format!("{} {version} installiert", def.name),
+        Some(prev) if prev.version != version => Label::new("labels.componentSwitched")
+            .arg("component", def.id)
+            .arg("from", &prev.version)
+            .arg("to", &version),
+        _ => Label::new("labels.componentInstalled").arg("component", def.id).arg("version", &version),
     };
     let mut files: Vec<String> = def.files.iter().map(|f| f.to_string()).collect();
-    ctx.change_game_files(&label, |game, w| {
+    ctx.change_game_files(label, |game, w| {
         copy_component_files(def, &source, game, w)?;
         if def.id == "rs_asio" && !game.join(RS_ASIO_INI).is_file() {
             let template = fs::read_to_string(source.join(RS_ASIO_INI))
@@ -383,7 +413,7 @@ pub async fn uninstall_component(ctx: State<'_, Ctx>, id: String) -> Result<()> 
     let Some(installed) = ctx.state().installed.get(def.id).cloned() else {
         return Ok(());
     };
-    ctx.change_game_files(&format!("{} entfernt", def.name), |game, w| {
+    ctx.change_game_files(Label::new("labels.componentRemoved").arg("component", def.id), |game, w| {
         for f in &installed.files {
             w.protect(f)?;
             let p = game.join(f);
@@ -400,8 +430,9 @@ pub async fn uninstall_component(ctx: State<'_, Ctx>, id: String) -> Result<()> 
 
 fn apply_restored_state(ctx: &Ctx, restored: serde_json::Value) -> Result<()> {
     let mut s: AppState = serde_json::from_value(restored).unwrap_or_default();
-    // The selected folder is not part of what gets undone.
+    // The selected folder and the language are not part of what gets undone.
     s.game_dir = ctx.state().game_dir;
+    s.lang = ctx.state().lang;
     if s.dpi_override != ctx.state().dpi_override {
         display::set_dpi_override(&game_exe(&ctx.game_dir()?), s.dpi_override)?;
     }
@@ -410,9 +441,9 @@ fn apply_restored_state(ctx: &Ctx, restored: serde_json::Value) -> Result<()> {
 
 /// Writes the DLL options from `s` and records the ini as part of the fix,
 /// so removing the fix removes it too.
-fn apply_dll_config(ctx: &Ctx, mut s: AppState, label: &str) -> Result<()> {
+fn apply_dll_config(ctx: &Ctx, mut s: AppState, label: Label) -> Result<()> {
     let Some(fix) = s.installed.get_mut(components::DPI_FIX_ID) else {
-        return Err(AppError::msg("Bitte zuerst den Skalierungs-Fix installieren."));
+        return Err(AppError::msg(tr!("display.installFixFirst")));
     };
     let cfg = game::DllConfig { keep_visible: s.keep_visible, log: s.dll_log };
     ctx.change_game_files(label, |game, w| game::write_dll_config(game, cfg, w))?;
@@ -427,7 +458,7 @@ pub async fn set_keep_visible(ctx: State<'_, Ctx>, enabled: bool) -> Result<()> 
     let _op = ctx.op.lock().await;
     let mut s = ctx.state();
     s.keep_visible = enabled;
-    let label = if enabled { "Minimieren bei Fokusverlust aus" } else { "Minimieren bei Fokusverlust an" };
+    let label = Label::new(if enabled { "labels.minimizeOff" } else { "labels.minimizeOn" });
     apply_dll_config(&ctx, s, label)
 }
 
@@ -436,7 +467,7 @@ pub async fn set_dll_log(ctx: State<'_, Ctx>, enabled: bool) -> Result<()> {
     let _op = ctx.op.lock().await;
     let mut s = ctx.state();
     s.dll_log = enabled;
-    let label = if enabled { "Diagnose-Protokolle an" } else { "Diagnose-Protokolle aus" };
+    let label = Label::new(if enabled { "labels.dllLogOn" } else { "labels.dllLogOff" });
     apply_dll_config(&ctx, s, label)
 }
 
@@ -445,7 +476,7 @@ pub async fn set_dpi_override(ctx: State<'_, Ctx>, enabled: bool) -> Result<()> 
     let _op = ctx.op.lock().await;
     let game = ctx.game_dir()?;
     // Recorded as a snapshot without files so it shows up in the history and can be undone.
-    let label = if enabled { "Windows-Skalierung für Rocksmith aus" } else { "Windows-Skalierung für Rocksmith an" };
+    let label = Label::new(if enabled { "labels.windowsScalingOff" } else { "labels.windowsScalingOn" });
     let w = ctx.snapshots().begin(&game, label, serde_json::to_value(ctx.state())?)?;
     display::set_dpi_override(&game_exe(&game), enabled)?;
     w.commit_always()?;
@@ -464,7 +495,7 @@ pub async fn restore_snapshot(ctx: State<'_, Ctx>, id: String) -> Result<()> {
 #[tauri::command]
 pub async fn restore_original(ctx: State<'_, Ctx>) -> Result<()> {
     let _op = ctx.op.lock().await;
-    ctx.backup_saves_before("Automatisch vor dem Zurücksetzen des Spielordners")?;
+    ctx.backup_saves_before(Label::new("labels.autoBeforeReset"))?;
     match ctx.snapshots().restore_original(&ctx.game_dir()?)? {
         Some(restored) => apply_restored_state(&ctx, restored),
         None => Ok(()),
@@ -482,7 +513,7 @@ pub fn save_backups(ctx: State<'_, Ctx>) -> Result<Vec<saves::BackupInfo>> {
 }
 
 fn no_save_found() -> AppError {
-    AppError::msg("Kein Rocksmith-Spielstand gefunden. Rocksmith muss über Steam mindestens einmal gestartet worden sein.")
+    AppError::msg(tr!("saves.noneFound"))
 }
 
 #[tauri::command]
@@ -492,7 +523,8 @@ pub async fn backup_saves(ctx: State<'_, Ctx>, label: Option<String>) -> Result<
     if folders.is_empty() {
         return Err(no_save_found());
     }
-    let label = label.unwrap_or_else(|| "Von Hand gesichert".to_string());
+    // A label from the UI is already in its language.
+    let label = label.map_or_else(|| Label::new("labels.manual"), Label::Plain);
     folders
         .iter()
         .map(|f| saves::backup(Path::new(&f.path), &ctx.save_backups_dir(), &label, false))
@@ -508,7 +540,7 @@ pub async fn auto_backup_saves(ctx: State<'_, Ctx>) -> Result<bool> {
     let mut made = false;
     for folder in saves::find_save_folders() {
         if saves::daily_backup_due(&folder, &backups, now()) {
-            saves::backup(Path::new(&folder.path), &root, "Automatisch beim Start", true)?;
+            saves::backup(Path::new(&folder.path), &root, &Label::new("labels.autoOnStart"), true)?;
             made = true;
         }
     }
@@ -553,7 +585,7 @@ pub fn open_save_folder(app: tauri::AppHandle, account: Option<String>) -> Resul
         .ok_or_else(no_save_found)?;
     app.opener()
         .open_path(folder.path, None::<&str>)
-        .map_err(|e| AppError::msg(format!("Der Ordner konnte nicht geöffnet werden: {e}")))
+        .map_err(|e| AppError::msg(tr!("saves.openFolderFailed", error = e)))
 }
 
 #[derive(Serialize)]
@@ -666,22 +698,22 @@ const ENABLER_URL: &str = "https://ignition4.customsforge.com/tools/download/cdl
 pub async fn install_cdlc_enabler(app: tauri::AppHandle, ctx: State<'_, Ctx>) -> Result<()> {
     use tauri_plugin_opener::OpenerExt;
     let _op = ctx.op.lock().await;
-    ctx.backup_saves_before("Automatisch vor CDLC-Enabler-Installation")?;
+    ctx.backup_saves_before(Label::new("labels.autoBeforeEnabler"))?;
     let bytes = ctx.http.get(ENABLER_URL).send().await?.error_for_status()?.bytes().await?;
     if bytes.len() < 2 || &bytes[..2] != b"MZ" {
-        return Err(AppError::msg("CustomsForge hat keine Installationsdatei geliefert. Bitte später erneut versuchen."));
+        return Err(AppError::msg(tr!("cdlc.enablerNoInstaller")));
     }
     let dir = ctx.data_dir.join("downloads");
     fs::create_dir_all(&dir)?;
     let installer = dir.join("RS2014-CDLC-Installer.exe");
     fs::write(&installer, &bytes)?;
-    ctx.change_game_files("CDLC-Enabler (vor der Installation)", |_, w| {
+    ctx.change_game_files(Label::new("labels.enablerBefore"), |_, w| {
         w.protect("D3DX9_42.dll")?;
         w.protect(steam::ROCKSMITH_EXE)
     })?;
     app.opener()
         .open_path(installer.to_string_lossy(), None::<&str>)
-        .map_err(|e| AppError::msg(format!("Der Installer konnte nicht gestartet werden: {e}")))
+        .map_err(|e| AppError::msg(tr!("installer.startFailed", error = e)))
 }
 
 #[tauri::command]
@@ -696,23 +728,23 @@ pub async fn rsmods_status(ctx: State<'_, Ctx>) -> Result<rsmods::RsModsStatus> 
 pub async fn install_rsmods(app: tauri::AppHandle, ctx: State<'_, Ctx>) -> Result<String> {
     use tauri_plugin_opener::OpenerExt;
     let _op = ctx.op.lock().await;
-    ctx.backup_saves_before("Automatisch vor RSMods-Installation")?;
+    ctx.backup_saves_before(Label::new("labels.autoBeforeRsmods"))?;
     let rel = components::github_releases(&ctx.http, rsmods::REPO, rsmods::INSTALLER_SUFFIX)
         .await?
         .into_iter()
         .find(|r| !r.prerelease)
-        .ok_or_else(|| AppError::msg("Auf GitHub wurde kein RSMods-Installer gefunden."))?;
+        .ok_or_else(|| AppError::msg(tr!("rsmods.noInstaller")))?;
     let bytes = components::download_verified(&ctx.http, &rel).await?;
     let dir = ctx.data_dir.join("downloads");
     fs::create_dir_all(&dir)?;
     let installer = dir.join(&rel.asset_name);
     fs::write(&installer, bytes)?;
-    ctx.change_game_files(&format!("RSMods {} (vor der Installation)", rel.version), |_, w| {
+    ctx.change_game_files(Label::new("labels.rsmodsBefore").arg("version", &rel.version), |_, w| {
         rsmods::PROTECTED_FILES.iter().try_for_each(|f| w.protect(f))
     })?;
     app.opener()
         .open_path(installer.to_string_lossy(), None::<&str>)
-        .map_err(|e| AppError::msg(format!("Der Installer konnte nicht gestartet werden: {e}")))?;
+        .map_err(|e| AppError::msg(tr!("installer.startFailed", error = e)))?;
     Ok(rel.version)
 }
 
@@ -721,9 +753,9 @@ pub async fn install_rsmods(app: tauri::AppHandle, ctx: State<'_, Ctx>) -> Resul
 #[tauri::command]
 pub async fn uninstall_rsmods(ctx: State<'_, Ctx>) -> Result<()> {
     let _op = ctx.op.lock().await;
-    ctx.backup_saves_before("Automatisch vor RSMods-Entfernung")?;
+    ctx.backup_saves_before(Label::new("labels.autoBeforeRsmodsRemoval"))?;
     let original_cache = ctx.snapshots().original_copy("cache.psarc")?;
-    ctx.change_game_files("RSMods entfernt", |game, w| {
+    ctx.change_game_files(Label::new("labels.rsmodsRemoved"), |game, w| {
         for f in rsmods::installed_files(game) {
             w.protect(&f)?;
             fs::remove_file(game.join(&f))?;
@@ -746,10 +778,10 @@ pub fn open_rsmods_gui(app: tauri::AppHandle, ctx: State<'_, Ctx>) -> Result<()>
     use tauri_plugin_opener::OpenerExt;
     let gui = rsmods::status(&ctx.game_dir()?, None)
         .gui
-        .ok_or_else(|| AppError::msg("Die RSMods-Oberfläche wurde im Spielordner nicht gefunden."))?;
+        .ok_or_else(|| AppError::msg(tr!("rsmods.guiMissing")))?;
     app.opener()
         .open_path(gui, None::<&str>)
-        .map_err(|e| AppError::msg(format!("RSMods konnte nicht geöffnet werden: {e}")))
+        .map_err(|e| AppError::msg(tr!("rsmods.openFailed", error = e)))
 }
 
 pub const CUSTOMSFORGE_LABEL: &str = "customsforge";
@@ -800,7 +832,7 @@ fn handle_download(webview: tauri::Webview, event: tauri::webview::DownloadEvent
             let Some(path) = path else { return true };
             let file_name = path.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default();
             let report = if !success {
-                DownloadReport { file_name, result: None, error: Some("Download abgebrochen.".into()) }
+                DownloadReport { file_name, result: None, error: Some(tr!("cdlc.downloadCanceled")) }
             } else {
                 let ctx = app.state::<Ctx>();
                 match ctx.game_dir().and_then(|g| cdlc::import(&g, &ctx.data_dir, &[path.clone()])) {
@@ -831,7 +863,7 @@ fn customsforge_view(app: &tauri::AppHandle) -> Option<tauri::Webview> {
 pub async fn open_customsforge(app: tauri::AppHandle, x: f64, y: f64, width: f64, height: f64) -> Result<()> {
     use tauri::{LogicalPosition, LogicalSize, Manager, WebviewBuilder, WebviewUrl};
 
-    let fail = |e: tauri::Error| AppError::msg(format!("CustomsForge konnte nicht geöffnet werden: {e}"));
+    let fail = |e: tauri::Error| AppError::msg(tr!("customsforge.openFailed", error = e));
     if let Some(view) = customsforge_view(&app) {
         view.set_position(LogicalPosition::new(x, y)).map_err(fail)?;
         view.set_size(LogicalSize::new(width, height)).map_err(fail)?;
@@ -839,7 +871,7 @@ pub async fn open_customsforge(app: tauri::AppHandle, x: f64, y: f64, width: f64
         view.set_focus().ok();
         return Ok(());
     }
-    let window = app.get_window("main").ok_or_else(|| AppError::msg("Hauptfenster nicht gefunden."))?;
+    let window = app.get_window("main").ok_or_else(|| AppError::msg(tr!("customsforge.mainWindowMissing")))?;
     let url = CUSTOMSFORGE_URL.parse().expect("static URL");
     // Download buttons on CustomsForge open the file host (Google Drive, Mega …)
     // in a new tab. There are no tabs here, so the link opens in the same view,
@@ -917,7 +949,7 @@ pub fn customsforge_navigate(app: tauri::AppHandle, action: String) -> Result<()
         "forward" => "history.forward()",
         "reload" => "location.reload()",
         "home" => "location.href = 'https://ignition4.customsforge.com/'",
-        _ => return Err(AppError::msg("Unbekannte Aktion.")),
+        _ => return Err(AppError::msg(tr!("customsforge.unknownAction"))),
     };
     if let Some(view) = customsforge_view(&app) {
         view.eval(script).map_err(|e| AppError::msg(e.to_string()))?;
@@ -929,11 +961,11 @@ pub fn customsforge_navigate(app: tauri::AppHandle, action: String) -> Result<()
 /// embedded view; other addresses are refused.
 #[tauri::command]
 pub fn customsforge_open_url(app: tauri::AppHandle, url: String) -> Result<()> {
-    let url: reqwest::Url = url.parse().map_err(|_| AppError::msg("Ungültige Adresse."))?;
+    let url: reqwest::Url = url.parse().map_err(|_| AppError::msg(tr!("customsforge.invalidAddress")))?;
     if !sources::is_customsforge_url(&url) {
-        return Err(AppError::msg("Nur Seiten von ignition4.customsforge.com können geöffnet werden."));
+        return Err(AppError::msg(tr!("customsforge.foreignPage")));
     }
-    let view = customsforge_view(&app).ok_or_else(|| AppError::msg("CustomsForge ist nicht geöffnet."))?;
+    let view = customsforge_view(&app).ok_or_else(|| AppError::msg(tr!("customsforge.notOpen")))?;
     view.navigate(url).map_err(|e| AppError::msg(e.to_string()))
 }
 

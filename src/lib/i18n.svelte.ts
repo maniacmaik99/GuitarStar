@@ -1,4 +1,5 @@
 // Minimal i18n: German is the reference dictionary, English may omit keys (falls back to German).
+import { invoke } from "@tauri-apps/api/core";
 
 export type Lang = "de" | "en";
 
@@ -389,6 +390,31 @@ const de = {
     noneSet: "Für Rocksmith sind noch keine Startoptionen eingetragen.",
     steamSavesOnExit: "Steam speichert Änderungen erst beim Beenden; danach neu prüfen.",
     noModNeeds: "Im Spielordner ist noch keine Mod installiert, die Startoptionen braucht.",
+  },
+  // Labels of history entries and save backups, stored by the backend with
+  // these keys (src-tauri/core/src/i18n.rs); {component} is a component's name.
+  labels: {
+    gameSettings: "Spieleinstellungen geändert",
+    audioSettings: "Audio-Einstellungen geändert",
+    componentSwitched: "{component} {from} → {to}",
+    componentInstalled: "{component} {version} installiert",
+    componentRemoved: "{component} entfernt",
+    minimizeOff: "Minimieren bei Fokusverlust aus",
+    minimizeOn: "Minimieren bei Fokusverlust an",
+    dllLogOn: "Diagnose-Protokolle an",
+    dllLogOff: "Diagnose-Protokolle aus",
+    windowsScalingOff: "Windows-Skalierung für Rocksmith aus",
+    windowsScalingOn: "Windows-Skalierung für Rocksmith an",
+    enablerBefore: "CDLC-Enabler (vor der Installation)",
+    rsmodsBefore: "RSMods {version} (vor der Installation)",
+    rsmodsRemoved: "RSMods entfernt",
+    autoBeforeReset: "Automatisch vor dem Zurücksetzen des Spielordners",
+    autoBeforeEnabler: "Automatisch vor CDLC-Enabler-Installation",
+    autoBeforeRsmods: "Automatisch vor RSMods-Installation",
+    autoBeforeRsmodsRemoval: "Automatisch vor RSMods-Entfernung",
+    autoOnStart: "Automatisch beim Start",
+    manual: "Von Hand gesichert",
+    beforeRestore: "Vor Wiederherstellung",
   },
 };
 
@@ -783,6 +809,29 @@ const en: DeepPartial<Dict> = {
     steamSavesOnExit: "Steam only saves changes when it exits; check again afterwards.",
     noModNeeds: "No mod that needs launch options is installed in the game folder yet.",
   },
+  labels: {
+    gameSettings: "Game settings changed",
+    audioSettings: "Audio settings changed",
+    componentSwitched: "{component} {from} → {to}",
+    componentInstalled: "{component} {version} installed",
+    componentRemoved: "{component} removed",
+    minimizeOff: "Minimize on focus loss off",
+    minimizeOn: "Minimize on focus loss on",
+    dllLogOn: "Diagnostic logs on",
+    dllLogOff: "Diagnostic logs off",
+    windowsScalingOff: "Windows scaling for Rocksmith off",
+    windowsScalingOn: "Windows scaling for Rocksmith on",
+    enablerBefore: "CDLC Enabler (before installation)",
+    rsmodsBefore: "RSMods {version} (before installation)",
+    rsmodsRemoved: "RSMods removed",
+    autoBeforeReset: "Automatically before resetting the game folder",
+    autoBeforeEnabler: "Automatically before installing the CDLC Enabler",
+    autoBeforeRsmods: "Automatically before installing RSMods",
+    autoBeforeRsmodsRemoval: "Automatically before removing RSMods",
+    autoOnStart: "Automatically on start",
+    manual: "Backed up manually",
+    beforeRestore: "Before restore",
+  },
 };
 
 const dictionaries: Record<Lang, DeepPartial<Dict>> = { de, en };
@@ -805,6 +854,26 @@ function applyHtmlLang() {
 }
 applyHtmlLang();
 
+let backendSync: Promise<void> = Promise.resolve();
+
+/** Tells the backend the language, so its messages (errors, history labels …) use it too. */
+function syncBackend() {
+  try {
+    backendSync = invoke("set_language", { lang: current.lang }).then(
+      () => {},
+      () => {},
+    );
+  } catch {
+    // Not running inside Tauri (plain web build).
+  }
+}
+syncBackend();
+
+/** Resolves once the backend knows the current language. */
+export function languageSynced(): Promise<void> {
+  return backendSync;
+}
+
 export function getLang(): Lang {
   return current.lang;
 }
@@ -812,6 +881,7 @@ export function getLang(): Lang {
 export function setLang(lang: Lang) {
   current.lang = lang;
   applyHtmlLang();
+  syncBackend();
   try {
     localStorage.setItem(STORAGE_KEY, lang);
   } catch {
@@ -833,6 +903,19 @@ export function t(key: MessageKey, params?: Record<string, string | number>): st
   const text = lookup(dictionaries[current.lang], key) ?? lookup(de, key) ?? key;
   if (!params) return text;
   return text.replace(/\{(\w+)\}/g, (match, name: string) => (name in params ? String(params[name]) : match));
+}
+
+/**
+ * A label stored by the backend: translated from its key when the dictionary
+ * knows it, otherwise the text stored with it (older entries, unknown keys).
+ */
+export function storedLabel(
+  key: string | null | undefined,
+  params: Record<string, string> | null | undefined,
+  fallback: string,
+): string {
+  if (!key || lookup(de, key) === undefined) return fallback;
+  return t(key as MessageKey, params ?? undefined);
 }
 
 /** BCP 47 locale for dates and numbers in the current language. */

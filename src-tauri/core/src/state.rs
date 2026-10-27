@@ -6,6 +6,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::audio::AudioConfig;
 use crate::error::Result;
+use crate::i18n::Lang;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct InstalledComponent {
@@ -35,6 +36,9 @@ pub struct AppState {
     /// CustomsForge's, and they help pay for the site.
     #[serde(default)]
     pub hide_ads: bool,
+    /// Language of the UI, so messages before the UI reports it (at startup) use it too.
+    #[serde(default)]
+    pub lang: Option<Lang>,
 }
 
 impl AppState {

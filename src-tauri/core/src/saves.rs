@@ -2,6 +2,7 @@
 //! Cloud folder `<Steam>/userdata/<account>/221680/remote`. Every file in that
 //! folder counts as part of the save.
 
+use std::collections::BTreeMap;
 use std::fs;
 use std::io;
 use std::path::{Path, PathBuf};
@@ -11,11 +12,14 @@ use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 
 use crate::error::{AppError, Result};
+use crate::i18n::Label;
+use crate::tr;
 use crate::steam::{self, ROCKSMITH_APP_ID};
 
 /// Automatic backups kept per account; manual ones are never deleted automatically.
 pub const KEEP_AUTOMATIC: usize = 20;
-pub const LABEL_BEFORE_RESTORE: &str = "Vor Wiederherstellung";
+/// Label key of the backup made before a restore.
+pub const LABEL_BEFORE_RESTORE: &str = "labels.beforeRestore";
 const MANIFEST: &str = "manifest.json";
 const DAY_SECS: u64 = 24 * 60 * 60;
 
@@ -43,7 +47,13 @@ pub struct BackupInfo {
     pub id: String,
     /// Unix seconds.
     pub created: u64,
+    /// The label in the language at creation time; shown when there is no key.
     pub label: String,
+    /// Key and arguments of the label, so it can be shown in the current language.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub label_key: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub label_args: Option<BTreeMap<String, String>>,
     pub account: String,
     pub automatic: bool,
     /// The save folder the files came from.
@@ -81,7 +91,7 @@ fn list_files(dir: &Path) -> Result<Vec<(String, fs::Metadata)>> {
 
 fn checked_relative(rel: &str) -> Result<PathBuf> {
     crate::snapshot::checked_relative(rel)
-        .map_err(|_| AppError::msg(format!("Ungültiger Pfad in der Spielstand-Sicherung: {rel}")))
+        .map_err(|_| AppError::msg(tr!("saves.invalidPath", path = rel)))
 }
 
 fn sha256_of(path: &Path) -> Result<String> {
@@ -147,7 +157,7 @@ fn read_manifest(dir: &Path) -> Result<BackupInfo> {
 /// Copies every file of `remote_dir` into a new backup below `backups_root`.
 /// The backup is written to a temporary folder and only renamed into place once
 /// complete, so an interrupted backup never looks like a valid one.
-fn write_backup(remote_dir: &Path, backups_root: &Path, label: &str, automatic: bool) -> Result<BackupInfo> {
+fn write_backup(remote_dir: &Path, backups_root: &Path, label: &Label, automatic: bool) -> Result<BackupInfo> {
     let account = account_of(remote_dir);
     let account_dir = backups_root.join(&account);
     fs::create_dir_all(&account_dir)?;
@@ -167,7 +177,9 @@ fn write_backup(remote_dir: &Path, backups_root: &Path, label: &str, automatic: 
         let info = BackupInfo {
             id: id.clone(),
             created: now.as_secs(),
-            label: label.to_string(),
+            label: label.text(),
+            label_key: label.key(),
+            label_args: label.args(),
             account: account.clone(),
             automatic,
             source: remote_dir.to_string_lossy().into_owned(),
@@ -196,9 +208,9 @@ fn remove_unfinished(account_dir: &Path) {
 }
 
 /// Backs up the save folder and then trims old automatic backups.
-pub fn backup(remote_dir: &Path, backups_root: &Path, label: &str, automatic: bool) -> Result<BackupInfo> {
+pub fn backup(remote_dir: &Path, backups_root: &Path, label: &Label, automatic: bool) -> Result<BackupInfo> {
     if !remote_dir.is_dir() {
-        return Err(AppError::msg(format!("Der Spielstand-Ordner existiert nicht: {}", remote_dir.display())));
+        return Err(AppError::msg(tr!("saves.folderMissing", path = remote_dir.display())));
     }
     let info = write_backup(remote_dir, backups_root, label, automatic)?;
     prune(backups_root, &info.account, KEEP_AUTOMATIC)?;
@@ -233,7 +245,7 @@ pub fn find_backup(backups_root: &Path, id: &str) -> Result<BackupInfo> {
     list_backups(backups_root)?
         .into_iter()
         .find(|b| b.id == id)
-        .ok_or_else(|| AppError::msg("Diese Spielstand-Sicherung gibt es nicht mehr."))
+        .ok_or_else(|| AppError::msg(tr!("saves.backupGone")))
 }
 
 pub fn delete_backup(backups_root: &Path, id: &str) -> Result<()> {
@@ -260,10 +272,7 @@ fn verify(dir: &Path, info: &BackupInfo) -> Result<()> {
     for f in &info.files {
         let path = dir.join("files").join(checked_relative(&f.path)?);
         if !path.is_file() || sha256_of(&path)? != f.sha256 {
-            return Err(AppError::msg(format!(
-                "Die Sicherung ist beschädigt ({}); es wurde nichts verändert.",
-                f.path
-            )));
+            return Err(AppError::msg(tr!("saves.damaged", file = f.path)));
         }
     }
     Ok(())
@@ -276,7 +285,7 @@ fn ensure_inside(root: &Path, target: &Path) -> Result<()> {
     if parent.starts_with(fs::canonicalize(root)?) {
         Ok(())
     } else {
-        Err(AppError::msg(format!("Pfad außerhalb des Spielstand-Ordners: {}", target.display())))
+        Err(AppError::msg(tr!("saves.outsideFolder", path = target.display())))
     }
 }
 
@@ -287,7 +296,7 @@ pub fn restore(backups_root: &Path, id: &str, remote_dir: &Path) -> Result<Backu
     let dir = backup_dir(backups_root, &info)?;
     verify(&dir, &info)?;
     fs::create_dir_all(remote_dir)?;
-    let safety = write_backup(remote_dir, backups_root, LABEL_BEFORE_RESTORE, true)?;
+    let safety = write_backup(remote_dir, backups_root, &Label::new(LABEL_BEFORE_RESTORE), true)?;
 
     let wanted: Vec<&str> = info.files.iter().map(|f| f.path.as_str()).collect();
     for (rel, _) in list_files(remote_dir)? {
@@ -360,8 +369,8 @@ mod tests {
         let base = temp_dir("backup");
         let remote = steam_with_save(&base);
         let root = base.join("backups");
-        let first = backup(&remote, &root, "eins", false).unwrap();
-        let second = backup(&remote, &root, "zwei", true).unwrap();
+        let first = backup(&remote, &root, &"eins".into(), false).unwrap();
+        let second = backup(&remote, &root, &"zwei".into(), true).unwrap();
         assert_eq!(first.account, "12345");
         assert_eq!(first.files.len(), 3);
         let copy = root.join("12345").join(&first.id).join("files/sub/crd");
@@ -371,7 +380,7 @@ mod tests {
         // Interrupted backups are ignored and cleaned up by the next one.
         fs::create_dir_all(root.join("12345/.tmp-1/files")).unwrap();
         assert_eq!(list_backups(&root).unwrap().len(), 2);
-        backup(&remote, &root, "drei", false).unwrap();
+        backup(&remote, &root, &"drei".into(), false).unwrap();
         assert!(!root.join("12345/.tmp-1").exists());
         fs::remove_dir_all(&base).unwrap();
     }
@@ -381,14 +390,14 @@ mod tests {
         let base = temp_dir("restore");
         let remote = steam_with_save(&base);
         let root = base.join("backups");
-        let saved = backup(&remote, &root, "gut", false).unwrap();
+        let saved = backup(&remote, &root, &"gut".into(), false).unwrap();
 
         fs::write(remote.join("abc_PRFLDB"), "kaputt").unwrap();
         fs::write(remote.join("extra.tmp"), "neu").unwrap();
         fs::remove_file(remote.join("sub/crd")).unwrap();
 
         let safety = restore(&root, &saved.id, &remote).unwrap();
-        assert_eq!(safety.label, LABEL_BEFORE_RESTORE);
+        assert_eq!(safety.label_key.as_deref(), Some(LABEL_BEFORE_RESTORE));
         assert!(safety.automatic);
         assert!(safety.files.iter().any(|f| f.path == "extra.tmp"));
         assert_eq!(fs::read_to_string(remote.join("abc_PRFLDB")).unwrap(), "profil-v1");
@@ -408,7 +417,7 @@ mod tests {
         let base = temp_dir("unsafe");
         let remote = steam_with_save(&base);
         let root = base.join("backups");
-        let saved = backup(&remote, &root, "gut", false).unwrap();
+        let saved = backup(&remote, &root, &"gut".into(), false).unwrap();
         let dir = root.join("12345").join(&saved.id);
 
         fs::write(dir.join("files/abc_PRFLDB"), "verändert").unwrap();
@@ -432,10 +441,10 @@ mod tests {
         let base = temp_dir("prune");
         let remote = steam_with_save(&base);
         let root = base.join("backups");
-        let manual = backup(&remote, &root, "von Hand", false).unwrap();
+        let manual = backup(&remote, &root, &"von Hand".into(), false).unwrap();
         let mut autos = Vec::new();
         for _ in 0..4 {
-            autos.push(write_backup(&remote, &root, "auto", true).unwrap());
+            autos.push(write_backup(&remote, &root, &"auto".into(), true).unwrap());
         }
         prune(&root, "12345", 2).unwrap();
         let ids: Vec<String> = list_backups(&root).unwrap().into_iter().map(|b| b.id).collect();
@@ -458,6 +467,8 @@ mod tests {
             id: String::new(),
             created,
             label: String::new(),
+            label_key: None,
+            label_args: None,
             account: "1".into(),
             automatic: true,
             source: String::new(),

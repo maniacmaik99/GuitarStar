@@ -2,28 +2,33 @@
   {
     "id": "focusrite-scarlett-solo-gen2-3",
     "name": "Focusrite Scarlett Solo (2./3. Gen)",
+    "name_en": "Focusrite Scarlett Solo (2nd/3rd gen)",
     "driver": "Focusrite USB ASIO",
     "output_base_channel": 0,
     "input_channel": 1,
     "buffer_size_mode": "custom",
     "custom_buffer_size": 48,
     "notes": "Bei verzerrtem Ton die Puffergröße auf 96 oder 192 erhöhen.",
+    "notes_en": "If the sound is distorted, increase the buffer size to 96 or 192.",
     "source": "https://github.com/mdias/rs_asio/tree/master/docs/focusrite_solo_2-3"
   },
   {
     "id": "focusrite-scarlett-solo-gen4",
     "name": "Focusrite Scarlett Solo (4. Gen)",
+    "name_en": "Focusrite Scarlett Solo (4th gen)",
     "driver": "Focusrite USB ASIO",
     "output_base_channel": 0,
     "input_channel": 0,
     "buffer_size_mode": "custom",
     "custom_buffer_size": 48,
     "notes": "Bei verzerrtem Ton die Puffergröße auf 96 oder 192 erhöhen.",
+    "notes_en": "If the sound is distorted, increase the buffer size to 96 or 192.",
     "source": "https://github.com/mdias/rs_asio/tree/master/docs/focusrite_solo_4"
   },
   {
     "id": "focusrite-scarlett-18i8-gen2",
     "name": "Focusrite Scarlett 18i8 (2. Gen)",
+    "name_en": "Focusrite Scarlett 18i8 (2nd gen)",
     "driver": "Focusrite USB ASIO",
     "output_base_channel": 0,
     "input_channel": 0,
@@ -121,17 +126,20 @@
   {
     "id": "asus-strix-soar",
     "name": "Asus Strix Soar (Soundkarte)",
+    "name_en": "Asus Strix Soar (sound card)",
     "driver": "STRIX SOUND CARD ASIO",
     "output_only": true,
     "output_base_channel": 0,
     "input_channel": 0,
     "buffer_size_mode": "driver",
     "notes": "Nur Ausgabe über ASIO; der Instrumenteneingang läuft weiter über Windows (z. B. Rocksmith-Kabel).",
+    "notes_en": "Output only through ASIO; the instrument input still goes through Windows (e.g. Rocksmith cable).",
     "source": "https://github.com/mdias/rs_asio/tree/master/docs/asus_strix_soar"
   },
   {
     "id": "behringer-mic2usb-asio4all",
     "name": "Behringer MIC2 USB (über ASIO4ALL)",
+    "name_en": "Behringer MIC2 USB (via ASIO4ALL)",
     "driver": "ASIO4ALL v2",
     "output_base_channel": 0,
     "input_channel": 0,
@@ -142,6 +150,7 @@
   {
     "id": "fifine-ampli1-asio4all",
     "name": "Fifine Ampli1 (über ASIO4ALL)",
+    "name_en": "Fifine Ampli1 (via ASIO4ALL)",
     "driver": "ASIO4ALL v2",
     "output_base_channel": 0,
     "input_channel": 1,
@@ -152,6 +161,7 @@
   {
     "id": "roland-ua5-asio4all",
     "name": "Roland Edirol UA-5 (über ASIO4ALL)",
+    "name_en": "Roland Edirol UA-5 (via ASIO4ALL)",
     "driver": "ASIO4ALL v2",
     "output_base_channel": 2,
     "alt_base_channel": 1,

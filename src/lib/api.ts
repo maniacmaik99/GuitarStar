@@ -98,7 +98,10 @@ export interface ReleaseInfo {
 export interface SnapshotSummary {
   id: string;
   created: number;
+  /** Text in the language at creation time; shown when `label_key` is unknown. */
   label: string;
+  label_key: string | null;
+  label_args: Record<string, string> | null;
   file_count: number;
 }
 
@@ -110,6 +113,7 @@ export interface AppState {
   keep_visible: boolean;
   hide_ads: boolean;
   dll_log: boolean;
+  lang: "de" | "en" | null;
 }
 
 export interface Overview {

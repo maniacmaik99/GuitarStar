@@ -2,6 +2,7 @@
 //! (or the fact that they did not exist) are saved first, so any operation can
 //! be undone and the folder can always be returned to its untouched state.
 
+use std::collections::BTreeMap;
 use std::fs;
 use std::path::{Component, Path, PathBuf};
 use std::time::{SystemTime, UNIX_EPOCH};
@@ -9,6 +10,8 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use serde::{Deserialize, Serialize};
 
 use crate::error::{AppError, Result};
+use crate::i18n::Label;
+use crate::tr;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SnapshotFile {
@@ -22,7 +25,13 @@ pub struct Snapshot {
     pub id: String,
     /// Unix seconds.
     pub created: u64,
+    /// The label in the language at creation time; shown when there is no key.
     pub label: String,
+    /// Key and arguments of the label, so it can be shown in the current language.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub label_key: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub label_args: Option<BTreeMap<String, String>>,
     pub files: Vec<SnapshotFile>,
     /// App state as it was before this operation, restored together with the files.
     pub state_before: serde_json::Value,
@@ -45,7 +54,7 @@ pub(crate) fn checked_relative(rel: &str) -> Result<PathBuf> {
     if !rel.contains(':') && p.components().all(|c| matches!(c, Component::Normal(_))) {
         Ok(p.to_path_buf())
     } else {
-        Err(AppError::msg(format!("Ungültiger Pfad im Spielordner: {rel}")))
+        Err(AppError::msg(tr!("snapshot.invalidPath", path = rel)))
     }
 }
 
@@ -78,7 +87,7 @@ impl SnapshotStore {
         Ok(out)
     }
 
-    pub fn begin(&self, game_dir: &Path, label: &str, state_before: serde_json::Value) -> Result<SnapshotWriter> {
+    pub fn begin(&self, game_dir: &Path, label: Label, state_before: serde_json::Value) -> Result<SnapshotWriter> {
         let now = SystemTime::now().duration_since(UNIX_EPOCH).unwrap_or_default();
         // Zero-padded nanoseconds sort lexically in creation order.
         let id = format!("{:020}", now.as_nanos());
@@ -90,7 +99,9 @@ impl SnapshotStore {
             snapshot: Snapshot {
                 id,
                 created: now.as_secs(),
-                label: label.to_string(),
+                label: label.text(),
+                label_key: label.key(),
+                label_args: label.args(),
                 files: Vec::new(),
                 state_before,
             },
@@ -116,7 +127,7 @@ impl SnapshotStore {
     pub fn restore_to(&self, game_dir: &Path, id: &str) -> Result<serde_json::Value> {
         let all = self.list()?;
         if !all.iter().any(|s| s.id == id) {
-            return Err(AppError::msg("Diese Sicherung gibt es nicht mehr."));
+            return Err(AppError::msg(tr!("snapshot.gone")));
         }
         let mut state = serde_json::Value::Null;
         for snap in all.iter().take_while(|s| s.id.as_str() >= id) {
@@ -219,14 +230,14 @@ mod tests {
         fs::write(game.join("Rocksmith.ini"), "original").unwrap();
         let store = SnapshotStore::new(base.join("snapshots"));
 
-        let mut w = store.begin(&game, "eins", serde_json::json!({"step": 0})).unwrap();
+        let mut w = store.begin(&game, "eins".into(), serde_json::json!({"step": 0})).unwrap();
         w.protect("Rocksmith.ini").unwrap();
         w.protect("avrt.dll").unwrap();
         fs::write(game.join("Rocksmith.ini"), "geändert").unwrap();
         fs::write(game.join("avrt.dll"), "neu").unwrap();
         w.commit().unwrap();
 
-        let mut w = store.begin(&game, "zwei", serde_json::json!({"step": 1})).unwrap();
+        let mut w = store.begin(&game, "zwei".into(), serde_json::json!({"step": 1})).unwrap();
         w.protect("Rocksmith.ini").unwrap();
         fs::write(game.join("Rocksmith.ini"), "nochmal").unwrap();
         w.commit().unwrap();

@@ -9,6 +9,7 @@ use crate::error::Result;
 use crate::ini::IniDoc;
 use crate::snapshot::SnapshotWriter;
 use crate::steam;
+use crate::tr;
 
 pub const ROCKSMITH_INI: &str = "Rocksmith.ini";
 const AUDIO: &str = "Audio";
@@ -28,11 +29,11 @@ pub fn inspect(dir: &Path) -> GameInfo {
     let mut problems = Vec::new();
     let exe = dir.join(steam::ROCKSMITH_EXE).is_file();
     if !exe {
-        problems.push(format!("{} wurde in diesem Ordner nicht gefunden.", steam::ROCKSMITH_EXE));
+        problems.push(tr!("game.exeMissing", exe = steam::ROCKSMITH_EXE));
     }
     let steam_version = dir.join("steam_api.dll").is_file();
     if exe && !steam_version {
-        problems.push("Das scheint nicht die Steam-Version zu sein; RS_ASIO unterstützt nur diese.".into());
+        problems.push(tr!("game.notSteam"));
     }
     GameInfo {
         path: dir.to_string_lossy().into_owned(),
@@ -150,12 +151,12 @@ mod tests {
         let store = SnapshotStore::new(base.join("snapshots"));
         let same = GameSettings { fullscreen: Some(2), ..Default::default() };
 
-        let mut w = store.begin(&game, "gleich", serde_json::Value::Null).unwrap();
+        let mut w = store.begin(&game, "gleich".into(), serde_json::Value::Null).unwrap();
         write_settings(&game, &same, &mut w).unwrap();
         assert!(w.commit().unwrap().is_none());
 
         let changed = GameSettings { fullscreen: Some(1), ..Default::default() };
-        let mut w = store.begin(&game, "anders", serde_json::Value::Null).unwrap();
+        let mut w = store.begin(&game, "anders".into(), serde_json::Value::Null).unwrap();
         write_settings(&game, &changed, &mut w).unwrap();
         assert!(w.commit().unwrap().is_some());
         assert!(fs::read_to_string(game.join(ROCKSMITH_INI)).unwrap().contains("Fullscreen=1"));
