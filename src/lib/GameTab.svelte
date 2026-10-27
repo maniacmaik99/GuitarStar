@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onMount } from "svelte";
   import { api, type GameSettings, type MonitorSize, type Overview, type Runner } from "$lib/api";
+  import { t } from "$lib/i18n.svelte";
 
   let { ov, run, busy }: { ov: Overview; run: Runner; busy: boolean } = $props();
 
@@ -42,9 +43,9 @@
 
   function toggleKeepVisible(enabled: boolean) {
     run(
-      "Wird gespeichert …",
+      t("common.saving"),
       () => api.setKeepVisible(enabled),
-      enabled ? "Rocksmith minimiert sich ab dem nächsten Start nicht mehr." : "Rocksmith verhält sich wieder wie vorher.",
+      enabled ? t("game.keepVisibleOn") : t("game.keepVisibleOff"),
     );
   }
 
@@ -103,13 +104,13 @@
   }
 
   function disableDpiFlag() {
-    run("Einstellung wird entfernt …", () => api.setDpiOverride(false), "Die wirkungslose DPI-Einstellung wurde entfernt.");
+    run(t("game.dpiRemoving"), () => api.setDpiOverride(false), t("game.dpiRemoved"));
   }
 
   function save() {
     if (!form) return;
     const settings = { ...form, screen_width: written[0], screen_height: written[1] };
-    run("Einstellungen werden gespeichert …", () => api.saveGameSettings(settings), "Einstellungen gespeichert.");
+    run(t("game.savingSettings"), () => api.saveGameSettings(settings), t("game.settingsSaved"));
   }
 
   /** Installs the fix and, if the ini still holds a scaled-down resolution, writes the real one. */
@@ -118,87 +119,73 @@
     const version = dpiFix.bundled_version;
     const settings = form ? { ...form, screen_width: target[0], screen_height: target[1] } : null;
     run(
-      "Skalierungs-Fix wird installiert …",
+      t("game.installingFix"),
       async () => {
         await api.installComponent("dpi_fix", version);
         if (settings && (settings.screen_width !== form?.screen_width || settings.screen_height !== form?.screen_height)) {
           await api.saveGameSettings(settings);
         }
       },
-      "Skalierungs-Fix installiert. Starte Rocksmith neu.",
+      t("game.fixInstalledDone"),
     );
   }
 </script>
 
 {#if ov.dpi_override}
   <section class="card attention">
-    <h2>DPI-Einstellung entfernen</h2>
-    <p>
-      Die Windows-Einstellung „Skalierung durch: Anwendung“ ist für Rocksmith gesetzt, wirkt bei der Steam-Version aber
-      nicht. Sie lässt sich gefahrlos entfernen; der Skalierungs-Fix unten ersetzt sie.
-    </p>
-    <button disabled={busy} onclick={disableDpiFlag}>Entfernen</button>
+    <h2>{t("game.dpiTitle")}</h2>
+    <p>{t("game.dpiText")}</p>
+    <button disabled={busy} onclick={disableDpiFlag}>{t("common.remove")}</button>
   </section>
 {/if}
 
 {#if anyScaled && dpiFix}
   <section class="card" class:attention={!fixInstalled}>
-    <h2>Windows-Skalierung</h2>
+    <h2>{t("game.scalingTitle")}</h2>
     {#if fixInstalled}
-      <p><span class="badge ok">Skalierungs-Fix aktiv</span></p>
-      <p class="muted">
-        Rocksmith bekommt die echte Auflösung deines Monitors – im Fenster, im Vollbild und im exklusiven Vollbild.
-        Entfernen lässt sich der Fix unter „Komponenten“.
-      </p>
+      <p><span class="badge ok">{t("game.fixActive")}</span></p>
+      <p class="muted">{t("game.fixActiveText")}</p>
       {#if fixOutdated}
-        <button class="primary" disabled={busy} onclick={installFix}>Fix auf {dpiFix.bundled_version} aktualisieren</button>
+        <button class="primary" disabled={busy} onclick={installFix}>{t("game.updateFix", { version: dpiFix.bundled_version ?? "" })}</button>
       {/if}
     {:else}
-      <p>
-        Dein Monitor ist skaliert. Rocksmith kommt damit nicht klar: Windows vergrößert das Spiel, und es ragt über den
-        Bildschirm. Der Skalierungs-Fix behebt das in allen Anzeigemodi.
-      </p>
+      <p>{t("game.scaledText")}</p>
       {#if dpiFix.conflicts.length}
-        <p class="muted small">
-          Achtung: Im Spielordner liegt schon eine andere {dpiFix.conflicts.join(", ")}. Sie wird gesichert und ersetzt.
-        </p>
+        <p class="muted small">{t("game.fixConflict", { files: dpiFix.conflicts.join(", ") })}</p>
       {/if}
-      <button class="primary" disabled={busy} onclick={installFix}>Skalierungs-Fix installieren</button>
+      <button class="primary" disabled={busy} onclick={installFix}>{t("game.installFix")}</button>
     {/if}
   </section>
 {/if}
 
 {#if !form}
   <section class="card">
-    <h2>Rocksmith.ini fehlt noch</h2>
-    <p>
-      Das Spiel legt seine Einstellungsdatei erst beim ersten Start an. Starte Rocksmith einmal kurz über Steam, beende
-      es wieder und lade diese Seite dann neu.
-    </p>
-    <button disabled={busy} onclick={() => run("Prüfe …", async () => {})}>Neu laden</button>
+    <h2>{t("game.iniMissingTitle")}</h2>
+    <p>{t("game.iniMissingText")}</p>
+    <button disabled={busy} onclick={() => run(t("game.checking"), async () => {})}>{t("common.reload")}</button>
   </section>
 {:else}
   <section class="card">
-    <h2>Bild</h2>
+    <h2>{t("game.display")}</h2>
     <div class="field">
-      <label for="res">Auflösung</label>
+      <label for="res">{t("game.resolution")}</label>
       <select id="res" bind:value={getResolution, setResolution}>
         {#each resolutions as [w, h]}
-          <option value={`${w}x${h}`}>{w} × {h}{nativeOf(w, h) ? " (Monitor)" : ""}</option>
+          <option value={`${w}x${h}`}>{w} × {h}{nativeOf(w, h) ? t("game.monitorSuffix") : ""}</option>
         {/each}
       </select>
     </div>
     <div class="field">
-      <label for="fs">Anzeigemodus</label>
+      <label for="fs">{t("game.displayMode")}</label>
       <select id="fs" bind:value={form.fullscreen}>
-        <option value={0}>Fenster</option>
-        <option value={1}>Vollbild (Fenster)</option>
-        <option value={2}>Exklusives Vollbild</option>
+        <option value={0}>{t("game.windowed")}</option>
+        <option value={1}>{t("game.fullscreenWindow")}</option>
+        <option value={2}>{t("game.exclusiveFullscreen")}</option>
       </select>
     </div>
     {#if fixInstalled && !fixOutdated}
       <div class="field">
-        <span>Bei Fokusverlust</span>
+        <span>{t("game.focusLoss")}</span>
         <label class="row">
           <input
             type="checkbox"
@@ -206,29 +193,29 @@
             disabled={busy}
             onchange={(e) => toggleKeepVisible(e.currentTarget.checked)}
           />
-          nicht minimieren (z. B. beim Klick auf den zweiten Monitor)
+          {t("game.keepVisible")}
         </label>
       </div>
       {#if ov.state.keep_visible && form.fullscreen === 2}
-        <div class="hint">
-          Im exklusiven Vollbild minimiert DirectX das Spiel beim Fokusverlust immer – das lässt sich nicht verhindern.
-          Für zwei Monitore „Vollbild (Fenster)“ wählen; dank Skalierungs-Fix sieht es genauso aus.
-        </div>
+        <div class="hint">{t("game.exclusiveHint")}</div>
       {/if}
     {/if}
     {#if scale > 1 && !fixInstalled}
       <div class="scaling">
         <label class="row">
           <input type="checkbox" bind:checked={adapt} />
-          Ohne Fix: Auflösung an Windows-Skalierung ({Math.round(scale * 100)} %) anpassen (nur im Fenstermodus)
+          {t("game.adapt", { percent: Math.round(scale * 100) })}
         </label>
         <p class="muted small">
           {#if adapt}
-            Rocksmith bekommt {written[0]} × {written[1]}; Windows vergrößert das Fenster dann genau auf {target[0]} ×
-            {target[1]}. Das Bild ist dadurch minimal weicher.
+            {t("game.adaptOn", { w: written[0], h: written[1], tw: target[0], th: target[1] })}
           {:else}
-            Ohne Anpassung vergrößert Windows ein {target[0]} × {target[1]}-Fenster auf
-            {Math.round(target[0] * scale)} × {Math.round(target[1] * scale)}, und es ragt über den Bildschirm.
+            {t("game.adaptOff", {
+              w: target[0],
+              h: target[1],
+              sw: Math.round(target[0] * scale),
+              sh: Math.round(target[1] * scale),
+            })}
           {/if}
         </p>
       </div>
@@ -236,30 +223,30 @@
   </section>
 
   <section class="card">
-    <h2>Audio im Spiel</h2>
-    <p class="muted">Für RS_ASIO empfohlen: exklusiver Modus und Ultra-Low-Latency an, Puffer so klein wie ohne Knacken möglich.</p>
+    <h2>{t("game.audioTitle")}</h2>
+    <p class="muted">{t("game.audioHint")}</p>
     <div class="field">
-      <label for="excl">Exklusiver Modus</label>
+      <label for="excl">{t("game.exclusiveMode")}</label>
       <input id="excl" type="checkbox" bind:checked={form.exclusive_mode} />
     </div>
     <div class="field">
-      <label for="ull">Ultra-Low-Latency-Modus</label>
+      <label for="ull">{t("game.ullMode")}</label>
       <input id="ull" type="checkbox" bind:checked={form.ultra_low_latency} />
     </div>
     <div class="field">
-      <label for="lb">Latenzpuffer</label>
+      <label for="lb">{t("game.latencyBuffer")}</label>
       <select id="lb" bind:value={form.latency_buffer}>
-        <option value={1}>1 (niedrigste Latenz)</option>
+        <option value={1}>{t("game.bufferLowest")}</option>
         <option value={2}>2</option>
         <option value={3}>3</option>
-        <option value={4}>4 (stabilste)</option>
+        <option value={4}>{t("game.bufferStablest")}</option>
       </select>
     </div>
   </section>
 
   <div class="row">
-    <button class="primary" disabled={busy} onclick={save}>Speichern</button>
-    <span class="muted">Vor dem Speichern wird die bisherige Rocksmith.ini gesichert.</span>
+    <button class="primary" disabled={busy} onclick={save}>{t("common.save")}</button>
+    <span class="muted">{t("game.saveHint")}</span>
   </div>
 {/if}
 

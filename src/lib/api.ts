@@ -1,5 +1,6 @@
 // Typed wrappers around the Rust commands in src-tauri/src/commands.rs.
 import { invoke } from "@tauri-apps/api/core";
+import { locale } from "$lib/i18n.svelte";
 
 export type OutputMode = "asio" | "windows" | "ask";
 
@@ -218,5 +219,5 @@ export function errorText(e: unknown): string {
 }
 
 export function formatDate(unixSeconds: number): string {
-  return new Date(unixSeconds * 1000).toLocaleString("de-DE", { dateStyle: "medium", timeStyle: "short" });
+  return new Date(unixSeconds * 1000).toLocaleString(locale(), { dateStyle: "medium", timeStyle: "short" });
 }

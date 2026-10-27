@@ -12,6 +12,7 @@
     type Overview,
     type Runner,
   } from "$lib/api";
+  import { formatNumber, t } from "$lib/i18n.svelte";
 
   let { run, busy, openBrowser }: { ov: Overview; run: Runner; busy: boolean; openBrowser: () => void } = $props();
 
@@ -32,15 +33,15 @@
   }
 
   function report(r: ImportResult, source?: string) {
-    for (const name of r.imported) activity.unshift({ text: `Installiert: ${name}`, ok: true });
-    for (const [name, reason] of r.skipped) activity.unshift({ text: `Übersprungen: ${name} – ${reason}`, ok: false });
-    if (!r.imported.length && !r.skipped.length && source) activity.unshift({ text: `${source}: nichts gefunden`, ok: false });
+    for (const name of r.imported) activity.unshift({ text: t("songs.installed", { name }), ok: true });
+    for (const [name, reason] of r.skipped) activity.unshift({ text: t("songs.skipped", { name, reason }), ok: false });
+    if (!r.imported.length && !r.skipped.length && source) activity.unshift({ text: t("songs.nothingFound", { source }), ok: false });
     activity = activity.slice(0, 8);
   }
 
   async function importPaths(paths: string[]) {
     let result: ImportResult | null = null;
-    await run("Songs werden installiert …", async () => {
+    await run(t("songs.installing"), async () => {
       result = await api.cdlcImport(paths);
     });
     if (result) report(result);
@@ -50,29 +51,29 @@
   async function pickFiles() {
     const picked = await open({
       multiple: true,
-      title: "Songs auswählen",
-      filters: [{ name: "Rocksmith-Songs", extensions: ["psarc", "zip"] }],
+      title: t("songs.pickTitle"),
+      filters: [{ name: t("songs.filterName"), extensions: ["psarc", "zip"] }],
     });
     if (Array.isArray(picked) && picked.length) await importPaths(picked);
   }
 
   async function toggle(name: string, enabled: boolean) {
-    await run(enabled ? "Song wird aktiviert …" : "Song wird deaktiviert …", () => api.cdlcSetEnabled(name, enabled));
+    await run(enabled ? t("songs.enabling") : t("songs.disabling"), () => api.cdlcSetEnabled(name, enabled));
     await reload();
   }
 
   async function remove(name: string, title: string) {
-    if (!(await ask(`„${title}“ endgültig löschen?`, { title: "Song löschen", kind: "warning" }))) return;
-    await run("Song wird gelöscht …", () => api.cdlcDelete(name));
+    if (!(await ask(t("songs.deleteConfirm", { title }), { title: t("songs.deleteTitle"), kind: "warning" }))) return;
+    await run(t("songs.deleting"), () => api.cdlcDelete(name));
     await reload();
   }
 
   async function installEnabler() {
     const ok = await ask(
-      "GuitarStar lädt den offiziellen CDLC-Enabler-Installer von CustomsForge herunter und startet ihn. Windows fragt nach Administratorrechten. Im Installer die Option zum Freischalten von CDLC wählen. Weiter?",
-      { title: "CDLC-Enabler", kind: "info" },
+      t("songs.enablerConfirm"),
+      { title: t("songs.enablerTitle"), kind: "info" },
     );
-    if (ok) await run("Installer wird geladen …", () => api.installCdlcEnabler(), "Installer gestartet. Danach hier „Neu prüfen“ klicken.");
+    if (ok) await run(t("common.installerLoading"), () => api.installCdlcEnabler(), t("common.installerStarted"));
   }
 
   let filtered = $derived.by(() => {
@@ -82,7 +83,7 @@
   });
   let enabledCount = $derived(data?.songs.filter((s) => s.enabled).length ?? 0);
 
-  const mb = (bytes: number) => (bytes / 1024 / 1024).toFixed(1).replace(".", ",") + " MB";
+  const mb = (bytes: number) => formatNumber(bytes / 1024 / 1024, { minimumFractionDigits: 1, maximumFractionDigits: 1, useGrouping: false }) + " MB";
 
   onMount(() => {
     reload();
@@ -111,31 +112,25 @@
 {:else if data}
   {#if !data.enabler_installed}
     <section class="card attention">
-      <h2>CDLC-Enabler fehlt</h2>
-      <p>Ohne ihn lädt Rocksmith keine eigenen Songs. Er kommt von CustomsForge und wird mit deren Installer eingerichtet.</p>
+      <h2>{t("songs.enablerMissing")}</h2>
+      <p>{t("songs.enablerMissingText")}</p>
       {#if data.cherub_rock_installed === false}
-        <p class="muted small">
-          Hinweis: Der kostenlose DLC „Cherub Rock“ ist nicht installiert. Ältere Enabler brauchen ihn; in Steam unter
-          Rocksmith → DLC aktivieren.
-        </p>
+        <p class="muted small">{t("songs.cherubHint")}</p>
       {/if}
       <div class="row">
-        <button class="primary" disabled={busy} onclick={installEnabler}>CDLC-Enabler installieren …</button>
-        <button disabled={busy} onclick={reload}>Neu prüfen</button>
+        <button class="primary" disabled={busy} onclick={installEnabler}>{t("songs.installEnabler")}</button>
+        <button disabled={busy} onclick={reload}>{t("common.recheck")}</button>
       </div>
     </section>
   {/if}
 
   <section class="card">
     <div class="row head">
-      <h2>Songs finden</h2>
-      <button class="primary" onclick={openBrowser}>CustomsForge öffnen</button>
-      <button disabled={busy} onclick={pickFiles}>Dateien auswählen …</button>
+      <h2>{t("songs.find")}</h2>
+      <button class="primary" onclick={openBrowser}>{t("songs.openCustomsforge")}</button>
+      <button disabled={busy} onclick={pickFiles}>{t("songs.pickFiles")}</button>
     </div>
-    <p class="muted">
-      In CustomsForge mit deinem (kostenlosen) Konto einloggen und Songs herunterladen – sie werden automatisch
-      installiert. Oder Dateien (.psarc, .zip) einfach auf dieses Fenster ziehen.
-    </p>
+    <p class="muted">{t("songs.findText")}</p>
     {#if activity.length}
       <ul class="activity">
         {#each activity as a}
@@ -147,22 +142,26 @@
 
   <section class="card">
     <div class="row head">
-      <h2>Deine Songs</h2>
-      <span class="badge">{enabledCount} aktiv</span>
+      <h2>{t("songs.yours")}</h2>
+      <span class="badge">{t("songs.enabledCount", { count: enabledCount })}</span>
       {#if data.songs.length - enabledCount}
-        <span class="badge">{data.songs.length - enabledCount} deaktiviert</span>
+        <span class="badge">{t("songs.disabledCount", { count: data.songs.length - enabledCount })}</span>
       {/if}
-      <input class="search" placeholder="Suchen …" bind:value={query} />
+      <input class="search" placeholder={t("songs.search")} bind:value={query} />
     </div>
     {#if data.songs.length === 0}
-      <p class="muted">
-        Noch keine eigenen Songs. GuitarStar verwaltet nur Songs im Ordner dlc\GuitarStar – die offiziellen Songs aus
-        Steam bleiben unberührt.
-      </p>
+      <p class="muted">{t("songs.empty")}</p>
     {:else}
       <table>
         <thead>
-          <tr><th>Aktiv</th><th>Interpret</th><th>Titel</th><th>Version</th><th>Größe</th><th></th></tr>
+          <tr>
+            <th>{t("songs.colActive")}</th>
+            <th>{t("songs.colArtist")}</th>
+            <th>{t("songs.colTitle")}</th>
+            <th>{t("songs.colVersion")}</th>
+            <th>{t("songs.colSize")}</th>
+            <th></th>
+          </tr>
         </thead>
         <tbody>
           {#each filtered as s (s.file_name)}
@@ -172,7 +171,7 @@
                   type="checkbox"
                   checked={s.enabled}
                   disabled={busy}
-                  title={s.enabled ? "Deaktivieren" : "Aktivieren"}
+                  title={s.enabled ? t("songs.disable") : t("songs.enable")}
                   onchange={(e) => toggle(s.file_name, e.currentTarget.checked)}
                 />
               </td>
@@ -181,21 +180,21 @@
               <td class="muted">{s.version ?? ""}</td>
               <td class="muted">{mb(s.size)}</td>
               <td class="right">
-                <button class="link" disabled={busy} onclick={() => remove(s.file_name, s.title)}>löschen</button>
+                <button class="link" disabled={busy} onclick={() => remove(s.file_name, s.title)}>{t("songs.delete")}</button>
               </td>
             </tr>
           {/each}
         </tbody>
       </table>
-      <p class="muted small">Änderungen gelten ab dem nächsten Spielstart (oder nach „Songs neu laden“ mit RSMods).</p>
+      <p class="muted small">{t("songs.changesHint")}</p>
     {/if}
   </section>
 {:else}
-  <p class="muted">Lade Songs …</p>
+  <p class="muted">{t("songs.loading")}</p>
 {/if}
 
 {#if dragging}
-  <div class="drop">Loslassen, um die Songs zu installieren</div>
+  <div class="drop">{t("songs.drop")}</div>
 {/if}
 
 <style>

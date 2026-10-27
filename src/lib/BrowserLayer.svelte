@@ -2,6 +2,7 @@
   import { onMount } from "svelte";
   import { listen } from "@tauri-apps/api/event";
   import { api, errorText, type DownloadReport } from "$lib/api";
+  import { t } from "$lib/i18n.svelte";
 
   let { onclose }: { onclose: () => void } = $props();
 
@@ -37,12 +38,12 @@
         } catch {}
         page = { host, loading: state === "started" };
       }),
-      listen<string>("cdlc-download-started", (e) => (status = { text: `Lädt ${e.payload} …`, kind: "busy" })),
+      listen<string>("cdlc-download-started", (e) => (status = { text: t("browser.downloading", { name: e.payload }), kind: "busy" })),
       listen<DownloadReport>("cdlc-download", (e) => {
         const r = e.payload;
         if (r.error) status = { text: `${r.file_name}: ${r.error}`, kind: "bad" };
-        else if (r.result?.imported.length) status = { text: `Installiert: ${r.result.imported.join(", ")}`, kind: "ok" };
-        else status = { text: `${r.file_name}: ${r.result?.skipped[0]?.[1] ?? "kein Song gefunden"}`, kind: "bad" };
+        else if (r.result?.imported.length) status = { text: t("songs.installed", { name: r.result.imported.join(", ") }), kind: "ok" };
+        else status = { text: `${r.file_name}: ${r.result?.skipped[0]?.[1] ?? t("browser.noSong")}`, kind: "bad" };
       }),
     ];
     return () => {
@@ -56,10 +57,10 @@
 
 <div class="layer">
   <div class="bar">
-    <button title="Zurück" onclick={() => api.customsforgeNavigate("back")}>←</button>
-    <button title="Vor" onclick={() => api.customsforgeNavigate("forward")}>→</button>
-    <button title="Neu laden" onclick={() => api.customsforgeNavigate("reload")}>⟳</button>
-    <button title="Startseite" onclick={() => api.customsforgeNavigate("home")}>CustomsForge</button>
+    <button title={t("browser.back")} onclick={() => api.customsforgeNavigate("back")}>←</button>
+    <button title={t("browser.forward")} onclick={() => api.customsforgeNavigate("forward")}>→</button>
+    <button title={t("common.reload")} onclick={() => api.customsforgeNavigate("reload")}>⟳</button>
+    <button title={t("browser.home")} onclick={() => api.customsforgeNavigate("home")}>CustomsForge</button>
     {#if page}
       <span class="host" title={page.host}>
         {#if page.loading}<span class="spinner"></span>{/if}{page.host}
@@ -71,13 +72,10 @@
       {:else if status}
         {#if status.kind === "busy"}<span class="spinner"></span>{/if}{status.text}
       {:else}
-        <span class="muted">
-          Heruntergeladene Songs werden automatisch installiert. Werbung auf dieser Seite schaltet CustomsForge
-          (ausblendbar unter Einstellungen).
-        </span>
+        <span class="muted">{t("browser.hint")}</span>
       {/if}
     </div>
-    <button class="primary" onclick={close}>Fertig</button>
+    <button class="primary" onclick={close}>{t("browser.done")}</button>
   </div>
   <div class="area" bind:this={area}></div>
 </div>

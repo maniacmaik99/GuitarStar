@@ -9,6 +9,7 @@
     type Overview,
     type Runner,
   } from "$lib/api";
+  import { t } from "$lib/i18n.svelte";
 
   let { ov, run, busy, gotoComponents }: { ov: Overview; run: Runner; busy: boolean; gotoComponents: () => void } =
     $props();
@@ -72,7 +73,7 @@
   });
 
   function save() {
-    run("Audio wird eingerichtet …", () => api.applyAudioConfig($state.snapshot(form)), "Audio-Einstellungen gespeichert.");
+    run(t("audio.applying"), () => api.applyAudioConfig($state.snapshot(form)), t("audio.applied"));
   }
 
   async function saveAsProfile() {
@@ -87,7 +88,7 @@
       source: null,
       custom: true,
     };
-    const ok = await run("Profil wird gespeichert …", () => api.saveProfile(profile), `Profil „${name}“ gespeichert.`);
+    const ok = await run(t("audio.savingProfile"), () => api.saveProfile(profile), t("audio.profileSaved", { name }));
     if (ok) {
       profiles = await api.listProfiles();
       form.profile_id = id;
@@ -98,40 +99,37 @@
 
 {#if !rsAsioInstalled}
   <section class="card">
-    <h2>RS_ASIO ist noch nicht installiert</h2>
-    <p>Damit das Spiel dein Audio-Interface nutzen kann, installiere zuerst RS_ASIO.</p>
-    <button class="primary" onclick={gotoComponents}>Zu den Komponenten</button>
+    <h2>{t("audio.notInstalledTitle")}</h2>
+    <p>{t("audio.notInstalledText")}</p>
+    <button class="primary" onclick={gotoComponents}>{t("audio.gotoComponents")}</button>
   </section>
 {:else if !loaded}
-  <p class="muted">Suche Audio-Treiber …</p>
+  <p class="muted">{t("audio.searchingDrivers")}</p>
 {:else}
   {#if drivers.length === 0}
     <section class="card">
-      <h2>Kein ASIO-Treiber gefunden</h2>
+      <h2>{t("audio.noDriverTitle")}</h2>
       {#if ov.platform === "linux"}
-        <p>Unter Linux läuft ASIO über wineasio im Proton-Prefix. Diese Einrichtung wird später unterstützt.</p>
+        <p>{t("audio.linuxHint")}</p>
       {:else}
-        <p>
-          Installiere den Treiber deines Audio-Interfaces (z. B. „Focusrite Control“ für Scarlett-Geräte), schließ das
-          Gerät an und öffne diesen Tab erneut. Ohne Interface-Treiber hilft ASIO4ALL.
-        </p>
+        <p>{t("audio.noDriverText")}</p>
       {/if}
     </section>
   {/if}
 
   <section class="card">
-    <h2>Gerät</h2>
+    <h2>{t("audio.device")}</h2>
     <div class="field">
-      <label for="profile">Geräteprofil</label>
+      <label for="profile">{t("audio.profile")}</label>
       <select id="profile" value={form.profile_id ?? ""} onchange={(e) => applyProfile(e.currentTarget.value)}>
-        <option value="">Eigene Einstellungen</option>
+        <option value="">{t("audio.customSettings")}</option>
         {#if suitable.length}
-          <optgroup label="Passend zu deinen Treibern">
+          <optgroup label={t("audio.matchingProfiles")}>
             {#each suitable as p}<option value={p.id}>{p.name}</option>{/each}
           </optgroup>
         {/if}
-        <optgroup label="Alle Profile">
-          {#each profiles as p}<option value={p.id}>{p.name}{p.custom ? " (eigenes)" : ""}</option>{/each}
+        <optgroup label={t("audio.allProfiles")}>
+          {#each profiles as p}<option value={p.id}>{p.name}{p.custom ? t("audio.ownSuffix") : ""}</option>{/each}
         </optgroup>
       </select>
     </div>
@@ -139,110 +137,92 @@
       <p class="muted">{selectedProfile.notes}</p>
     {/if}
     <div class="field">
-      <label for="driver">ASIO-Treiber</label>
+      <label for="driver">{t("audio.driver")}</label>
       <select id="driver" bind:value={form.driver}>
         {#if form.driver && !selectedDriver}
-          <option value={form.driver}>{form.driver} (nicht installiert)</option>
+          <option value={form.driver}>{t("audio.driverMissing", { name: form.driver })}</option>
         {/if}
         {#each drivers as d}
-          <option value={d.name}>{d.name}{d.has_32bit ? "" : " (nur 64-Bit)"}</option>
+          <option value={d.name}>{d.name}{d.has_32bit ? "" : t("audio.only64Suffix")}</option>
         {/each}
       </select>
     </div>
     {#if selectedDriver && !selectedDriver.has_32bit}
-      <div class="hint warn">
-        Dieser Treiber ist nur als 64-Bit-Version installiert. Rocksmith ist ein 32-Bit-Spiel und braucht den
-        32-Bit-Treiber.
-      </div>
+      <div class="hint warn">{t("audio.only64Hint")}</div>
     {/if}
     <div class="field">
-      <label for="inch">Eingangskanal Gitarre/Bass</label>
+      <label for="inch">{t("audio.inputChannel")}</label>
       <input id="inch" type="number" min="0" max="64" bind:value={form.input_channel} disabled={form.output_only} />
     </div>
     <div class="field">
-      <label for="outch">Erster Ausgangskanal</label>
+      <label for="outch">{t("audio.outputChannel")}</label>
       <input id="outch" type="number" min="0" max="64" bind:value={form.output_base_channel} />
     </div>
     <div class="field">
-      <label for="buf">Puffergröße</label>
+      <label for="buf">{t("audio.bufferSize")}</label>
       <div class="row">
         <select id="buf" bind:value={form.buffer_size_mode}>
-          <option value="driver">vom Treiber</option>
-          <option value="host">vom Spiel</option>
-          <option value="custom">fest</option>
+          <option value="driver">{t("audio.bufferDriver")}</option>
+          <option value="host">{t("audio.bufferHost")}</option>
+          <option value="custom">{t("audio.bufferCustom")}</option>
         </select>
         {#if form.buffer_size_mode === "custom"}
           <input type="number" min="16" max="2048" step="16" bind:value={form.custom_buffer_size} />
-          <span class="muted">Samples; bei Knacken erhöhen (96, 192 …)</span>
+          <span class="muted">{t("audio.bufferHint")}</span>
         {/if}
       </div>
     </div>
   </section>
 
   <section class="card">
-    <h2>Tonausgabe</h2>
+    <h2>{t("audio.output")}</h2>
     <label class="option">
       <input type="radio" bind:group={form.output_mode} value="asio" />
       <div>
-        <strong>Über das Interface</strong>
-        <div class="muted">
-          Kopfhörer/Boxen am Interface. Niedrigste Latenz – empfohlen zum Spielen. Discord kann den Spielton dann
-          nicht übertragen; Sprache aus Discord hörst du, wenn Discord ebenfalls das Interface als Ausgabe nutzt.
-        </div>
+        <strong>{t("audio.outAsio")}</strong>
+        <div class="muted">{t("audio.outAsioText")}</div>
       </div>
     </label>
     <label class="option">
       <input type="radio" bind:group={form.output_mode} value="windows" />
       <div>
-        <strong>Über Windows (z. B. Bluetooth)</strong>
-        <div class="muted">
-          Spielton über das Windows-Standardgerät, Gitarre weiter über das Interface. Läuft parallel zu Discord und
-          lässt sich streamen. Bluetooth verzögert den Ton um etwa 0,2–0,5 s – auch deine Gitarre hörst du so spät.
-        </div>
+        <strong>{t("audio.outWindows")}</strong>
+        <div class="muted">{t("audio.outWindowsText")}</div>
       </div>
     </label>
     <label class="option">
       <input type="radio" bind:group={form.output_mode} value="ask" />
       <div>
-        <strong>Bei jedem Spielstart fragen</strong>
-        <div class="muted">RS_ASIO zeigt beim Start eine Auswahl zwischen Interface und Windows.</div>
+        <strong>{t("audio.outAsk")}</strong>
+        <div class="muted">{t("audio.outAskText")}</div>
       </div>
     </label>
     {#if form.output_mode !== "asio" && windowsOutput}
       <div class="device" class:warn={windowsOutput.bluetooth}>
-        Windows-Ausgabe: <strong>{windowsOutput.name}</strong>{windowsOutput.device ? ` (${windowsOutput.device})` : ""}
-        <button class="link" onclick={async () => (windowsOutput = await api.defaultOutputDevice())}>neu prüfen</button>
+        {t("audio.windowsOutput")} <strong>{windowsOutput.name}</strong>{windowsOutput.device ? ` (${windowsOutput.device})` : ""}
+        <button class="link" onclick={async () => (windowsOutput = await api.defaultOutputDevice())}>{t("audio.recheck")}</button>
         {#if windowsOutput.bluetooth}
-          <p>
-            Das ist ein Bluetooth-Gerät. Spielton und deine Gitarre kommen damit 0,2–0,5 s verzögert an – zum Spielen
-            merklich. Besser: Kopfhörer per Kabel an das Interface, oder Lautsprecher/Monitor als Windows-Ausgabe.
-          </p>
+          <p>{t("audio.bluetoothHint")}</p>
         {/if}
       </div>
     {/if}
   </section>
 
   {#if ov.settings?.exclusive_mode && ov.state.audio && ov.state.audio.output_mode !== "asio"}
-    <div class="hint">
-      Rocksmith beansprucht das Windows-Ausgabegerät gerade exklusiv. Dann hörst du in Discord niemanden, und Discord
-      kann den Spielton nicht übertragen. Klick auf „Übernehmen“, um das zu beheben.
-    </div>
+    <div class="hint">{t("audio.exclusiveHint")}</div>
   {/if}
 
   <div class="row">
-    <button class="primary" disabled={busy || !form.driver} onclick={save}>Übernehmen</button>
-    <span class="muted">
-      Schreibt RS_ASIO.ini und passt Rocksmith.ini an (exklusiver Modus nur bei Ausgabe über das Interface). Beides wird
-      vorher gesichert.
-    </span>
+    <button class="primary" disabled={busy || !form.driver} onclick={save}>{t("audio.apply")}</button>
+    <span class="muted">{t("audio.applyHint")}</span>
   </div>
 
   <section class="card" style="margin-top: 16px">
-    <h2>Als eigenes Profil speichern</h2>
-    <p class="muted">Für Geräte ohne fertiges Profil: Einstellungen oben testen und hier für später speichern.</p>
+    <h2>{t("audio.saveProfileTitle")}</h2>
+    <p class="muted">{t("audio.saveProfileText")}</p>
     <div class="row">
-      <input placeholder="Name, z. B. Mein Interface" bind:value={profileName} />
-      <button disabled={busy || !profileName.trim() || !form.driver} onclick={saveAsProfile}>Speichern</button>
+      <input placeholder={t("audio.profileNamePlaceholder")} bind:value={profileName} />
+      <button disabled={busy || !profileName.trim() || !form.driver} onclick={saveAsProfile}>{t("common.save")}</button>
     </div>
   </section>
 {/if}
