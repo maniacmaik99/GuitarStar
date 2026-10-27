@@ -16,8 +16,11 @@
     type Overview,
     type Runner,
     type SongSource,
+    type CheckEvent,
+    type CheckStart,
+    type UpdateStatus,
   } from "$lib/api";
-  import { formatNumber, locale, t } from "$lib/i18n.svelte";
+  import { formatNumber, locale, t, type MessageKey } from "$lib/i18n.svelte";
 
   let {
     run,
@@ -43,7 +46,51 @@
   /** Newest first; shows what happened to imports and browser downloads. */
   let activity = $state<{ text: string; ok: boolean }[]>([]);
 
+  let updateStatus = $state<UpdateStatus | null>(null);
+  /** Text about the song update check: running, result or why it did not run. */
+  let checkMessage = $state<{ text: string; ok: boolean } | null>(null);
+
+  async function loadUpdateStatus() {
+    updateStatus = await api.cdlcUpdateStatus().catch(() => null);
+  }
+
+  const reasonText: Record<NonNullable<CheckStart["reason"]>, MessageKey> = {
+    none: "songs.updatesNoIds",
+    running: "songs.updatesRunning",
+    auto_done: "songs.updatesAllChecked",
+    manual_limit: "songs.updatesManualLimit",
+    all_checked: "songs.updatesAllChecked",
+  };
+
+  async function checkUpdates() {
+    try {
+      const start = await api.cdlcCheckUpdates(true);
+      if (start.started) checkMessage = { text: t("songs.updatesChecking", { done: 0, total: start.count }), ok: true };
+      else if (start.reason) checkMessage = { text: t(reasonText[start.reason]), ok: start.reason !== "manual_limit" };
+    } catch (e) {
+      checkMessage = { text: errorText(e), ok: false };
+    }
+    await loadUpdateStatus();
+  }
+
+  function onCheckEvent(e: CheckEvent) {
+    if (e.state === "progress") {
+      checkMessage = { text: t("songs.updatesChecking", { done: e.done, total: e.total }), ok: true };
+      return;
+    }
+    loadUpdateStatus().then(() => {
+      const found = Object.keys(updateStatus?.updates ?? {}).length;
+      if (e.state === "done") {
+        checkMessage = found ? { text: t("songs.updatesFound", { count: found }), ok: true } : { text: t("songs.updatesNone"), ok: true };
+      } else {
+        const key = e.state === "login" ? "songs.updatesLogin" : e.state === "limited" ? "songs.updatesLimited" : "songs.updatesError";
+        checkMessage = { text: t(key), ok: false };
+      }
+    });
+  }
+
   async function reload() {
+    loadUpdateStatus();
     try {
       data = await api.cdlcOverview();
       loadError = null;
@@ -220,6 +267,7 @@
           if (e.payload.paths.length) importPaths(e.payload.paths);
         }
       }),
+      listen<CheckEvent>("cdlc-update-check", (e) => onCheckEvent(e.payload)),
       listen<DownloadReport>("cdlc-download", (e) => {
         const r = e.payload;
         if (r.result) report(r.result, r.file_name);
@@ -275,6 +323,26 @@
         <span class="badge warn dup" title={t("songs.duplicateHint")}>{t("songs.duplicateCount", { count: duplicateCount })}</span>
       {/if}
       <input class="search" placeholder={t("songs.search")} bind:value={query} />
+    </div>
+    <div class="updates">
+      <div class="row">
+        <button
+          disabled={busy || !updateStatus || updateStatus.running || updateStatus.manual_left === 0}
+          title={t("songs.updatesHint")}
+          onclick={checkUpdates}
+        >
+          {t("songs.updatesCheck", { left: updateStatus?.manual_left ?? 3 })}
+        </button>
+        {#if checkMessage}
+          <span class="small" class:bad-text={!checkMessage.ok}>{checkMessage.text}</span>
+        {:else if updateStatus && Object.keys(updateStatus.updates).length}
+          <span class="badge ok">{t("songs.updatesFound", { count: Object.keys(updateStatus.updates).length })}</span>
+        {/if}
+        {#if updateStatus?.last_check}
+          <span class="muted small">{t("songs.updatesLast", { date: day(updateStatus.last_check) })}</span>
+        {/if}
+      </div>
+      <p class="muted small">{t("songs.updatesHint")}</p>
     </div>
     {#if data.songs.length === 0}
       <p class="muted">{t("songs.empty")}</p>
@@ -357,7 +425,19 @@
                   >
                 {/if}
               </td>
-              <td class="muted">{s.version ?? ""}</td>
+              <td class="muted">
+                {s.version ?? ""}
+                {#if updateStatus?.updates[s.file_name]}
+                  {@const update = updateStatus.updates[s.file_name]}
+                  <button
+                    class="badge ok update"
+                    title={t("songs.updateBadgeTitle")}
+                    onclick={() => source && openOnCustomsforge(source)}
+                  >
+                    {update.version ? t("songs.updateBadge", { version: update.version }) : t("songs.updateBadgeNoVersion")}
+                  </button>
+                {/if}
+              </td>
               <td class="muted nowrap">{s.modified ? day(s.modified) : ""}</td>
               <td class="muted nowrap">{mb(s.size)}</td>
               <td class="right">
@@ -444,6 +524,20 @@
     align-items: center;
     gap: 6px;
     margin-left: auto;
+  }
+  .updates {
+    margin: 10px 0 4px;
+  }
+  .updates p {
+    margin: 6px 0 0;
+  }
+  .bad-text {
+    color: var(--warn);
+  }
+  .badge.update {
+    padding: 1px 8px;
+    margin-left: 6px;
+    cursor: pointer;
   }
   .badge.dup {
     cursor: help;

@@ -16,5 +16,6 @@ pub mod snapshot;
 pub mod sources;
 pub mod state;
 pub mod steam;
+pub mod versions;
 
 pub use reqwest;

@@ -12,11 +12,14 @@ pub fn run() {
             let data_dir = app.path().app_data_dir()?;
             app.manage(commands::Ctx::new(data_dir));
             app.manage(commands::CfDownloads::default());
+            app.manage(commands::UpdateCheck::default());
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
             commands::overview,
             commands::set_language,
+            commands::cdlc_check_updates,
+            commands::cdlc_update_status,
             commands::detect_games,
             commands::set_game_dir,
             commands::save_game_settings,

@@ -1,9 +1,20 @@
 # Detecting newer versions of installed songs on CustomsForge
 
-Status: research only, nothing implemented yet. Investigated on 2026-10-27
-without logging in, using only public resources (a dozen requests in total: the
-home page, five public script bundles, `robots.txt`, `sitemap.xml`,
-`/tools/cfsm2`, one song page and one API path).
+Status: option B is implemented (since 0.4.0), with one change: the page
+reports through its document title (`GSCHK:{…}`, read by
+`on_document_title_changed`) instead of a remote IPC capability, so the
+CustomsForge page still gets no access to any app command. Limits: one
+automatic run per day at app start, at most 3 manual runs per day, at most 50
+songs per run, 2.5 s between songs, stop on login redirect/401/403/429.
+Code: `src-tauri/src/updatecheck.js`, `src-tauri/core/src/versions.rs`,
+`UpdateCheck` in `src-tauri/src/commands.rs`. The HTML selectors (download
+button text "… vN", "Last revised" row) still need a check with a logged-in
+account. Option A (asking CustomsForge) remains the preferred long-term route.
+
+Research: investigated on 2026-10-27 without logging in, using only public
+resources (a dozen requests in total: the home page, five public script
+bundles, `robots.txt`, `sitemap.xml`, `/tools/cfsm2`, one song page and one
+API path).
 
 ## Goal
 

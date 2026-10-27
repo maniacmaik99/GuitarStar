@@ -18,14 +18,17 @@ Rocksmith 2014 läuft auf aktueller Hardware oft nur mit Bastelei: Audio-Interfa
 - **Discord & Streaming:** Bei Tonausgabe über Windows läuft Rocksmith im geteilten Modus, sodass Discord parallel funktioniert und den Spielton übertragen kann. Der Audio-Tab zeigt das Windows-Ausgabegerät und warnt bei Bluetooth.
 - **Spieleinstellungen:** Auflösung, Anzeigemodus, Latenzpuffer, exklusiver Audiomodus.
 - **Komponenten mit Updates und Rollback:** Versionen kommen direkt von den offiziellen GitHub-Releases (mit Prüfsummen-Check), jede installierte Version bleibt offline verfügbar.
+- **Songliste:** Sortieren, Mehrfachauswahl (aktivieren/deaktivieren/löschen), Erkennung mehrerer Versionen desselben Songs und ein Link zur Song-Seite auf CustomsForge.
+- **Song-Updates:** Für Songs, die über das CustomsForge-Fenster geladen wurden, prüft GuitarStar einmal täglich beim Start (manuell bis zu 3-mal am Tag), ob es eine neuere Version gibt. Die Prüfung läuft mit deinem eigenen CustomsForge-Login im eingebetteten Fenster, Song für Song mit Pause; ohne gestartete App wird nichts abgefragt.
 - **Verlauf:** Vor jeder Änderung werden die betroffenen Dateien gesichert. Jede Änderung lässt sich zurücknehmen, auch komplett bis zum Originalzustand.
+- **Spielstand-Sicherung:** Dein Rocksmith-Profil (Steam-Ordner `userdata/…/221680/remote`) wird auf Knopfdruck, einmal täglich und vor riskanten Aktionen (RSMods, CDLC-Enabler, Originalzustand) gesichert und lässt sich wiederherstellen.
 - **Automatische Updates:** GuitarStar meldet neue Versionen beim Start und aktualisiert sich per Klick; unter „Einstellungen“ stehen die installierte Version und ein Knopf zum manuellen Prüfen. Updates sind signiert.
 - **Deutsch und Englisch:** Die Oberfläche folgt der Systemsprache (Deutsch bei deutschem System, sonst Englisch) und lässt sich in den Einstellungen umschalten.
 
 ### Geplant
 
 - Song-Infos in der Songliste (Stimmung, Arrangements, Länge)
-- Meldungen aus dem Hintergrundteil der App ebenfalls übersetzen (sie sind derzeit noch deutsch)
+- Song-Updates über eine offizielle Schnittstelle von CustomsForge, falls das erlaubt wird (siehe [docs/customsforge-update-check.md](docs/customsforge-update-check.md))
 - Linux / Steam Deck auf echter Hardware testen und ausbauen (siehe unten)
 
 ### Linux / Steam Deck (Vorschau)

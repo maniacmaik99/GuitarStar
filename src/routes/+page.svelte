@@ -78,6 +78,8 @@
     }
     // Daily save backup in the background; a failure here must not bother the player.
     saves.autoBackup().catch(() => {});
+    // Song update check, at most once a day; results show up in the Songs tab.
+    if (ov?.state.game_dir) api.cdlcCheckUpdates(false).catch(() => {});
   });
 </script>
 

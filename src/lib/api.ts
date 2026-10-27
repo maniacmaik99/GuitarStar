@@ -133,6 +133,27 @@ export interface MonitorSize {
   scale_factor: number;
 }
 
+export interface CheckStart {
+  started: boolean;
+  reason: "none" | "running" | "auto_done" | "manual_limit" | "all_checked" | null;
+  count: number;
+  manual_left: number;
+}
+
+export interface UpdateStatus {
+  updates: Record<string, { cf_id: string; version: string | null; revised: string | null }>;
+  manual_left: number;
+  last_check: number | null;
+  running: boolean;
+}
+
+/** Progress of a running song update check. */
+export interface CheckEvent {
+  state: "progress" | "done" | "login" | "limited" | "error";
+  done: number;
+  total: number;
+}
+
 export interface CdlcEntry {
   file_name: string;
   artist: string | null;
@@ -219,6 +240,8 @@ export const api = {
   cdlcDelete: (name: string) => invoke<void>("cdlc_delete", { name }),
   cdlcBulk: (names: string[], action: BulkAction) => invoke<BulkResult>("cdlc_bulk", { names, action }),
   cdlcSources: () => invoke<Record<string, SongSource>>("cdlc_sources"),
+  cdlcCheckUpdates: (manual: boolean) => invoke<CheckStart>("cdlc_check_updates", { manual }),
+  cdlcUpdateStatus: () => invoke<UpdateStatus>("cdlc_update_status"),
   customsforgeOpenUrl: (url: string) => invoke<void>("customsforge_open_url", { url }),
   installCdlcEnabler: () => invoke<void>("install_cdlc_enabler"),
   openCustomsforge: (b: Bounds) => invoke<void>("open_customsforge", { ...b }),

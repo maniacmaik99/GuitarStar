@@ -18,6 +18,7 @@ use guitarstar_core::i18n::{self, Label, Lang};
 use guitarstar_core::snapshot::{SnapshotStore, SnapshotWriter};
 use guitarstar_core::state::{AppState, InstalledComponent};
 use guitarstar_core::sources::{self, PendingDownload, Sources};
+use guitarstar_core::versions::{self, VersionStore};
 use guitarstar_core::{cdlc, display, linux, reqwest, rsmods, saves, steam, tr};
 
 const RS_ASIO_INI: &str = "RS_ASIO.ini";
@@ -861,7 +862,7 @@ fn customsforge_view(app: &tauri::AppHandle) -> Option<tauri::Webview> {
 /// commands (capabilities only cover the "main" webview).
 #[tauri::command]
 pub async fn open_customsforge(app: tauri::AppHandle, x: f64, y: f64, width: f64, height: f64) -> Result<()> {
-    use tauri::{LogicalPosition, LogicalSize, Manager, WebviewBuilder, WebviewUrl};
+    use tauri::{LogicalPosition, LogicalSize};
 
     let fail = |e: tauri::Error| AppError::msg(tr!("customsforge.openFailed", error = e));
     if let Some(view) = customsforge_view(&app) {
@@ -871,6 +872,15 @@ pub async fn open_customsforge(app: tauri::AppHandle, x: f64, y: f64, width: f64
         view.set_focus().ok();
         return Ok(());
     }
+    create_customsforge_view(&app, x, y, width, height)?;
+    Ok(())
+}
+
+/// Creates the CustomsForge view; also used hidden for the song update check.
+fn create_customsforge_view(app: &tauri::AppHandle, x: f64, y: f64, width: f64, height: f64) -> Result<tauri::Webview> {
+    use tauri::{LogicalPosition, LogicalSize, Manager, WebviewBuilder, WebviewUrl};
+
+    let fail = |e: tauri::Error| AppError::msg(tr!("customsforge.openFailed", error = e));
     let window = app.get_window("main").ok_or_else(|| AppError::msg(tr!("customsforge.mainWindowMissing")))?;
     let url = CUSTOMSFORGE_URL.parse().expect("static URL");
     // Download buttons on CustomsForge open the file host (Google Drive, Mega …)
@@ -892,7 +902,7 @@ pub async fn open_customsforge(app: tauri::AppHandle, x: f64, y: f64, width: f64
             false
         })
         .on_page_load(|webview, payload| {
-            use tauri::Emitter;
+            use tauri::{Emitter, Manager};
             use tauri::webview::PageLoadEvent;
             let state = match payload.event() {
                 PageLoadEvent::Started => "started",
@@ -900,7 +910,18 @@ pub async fn open_customsforge(app: tauri::AppHandle, x: f64, y: f64, width: f64
             };
             eprintln!("[customsforge] page {state} {}", payload.url());
             let _ = webview.app_handle().emit_to("main", "customsforge-page", (state, payload.url().to_string()));
+            if matches!(payload.event(), PageLoadEvent::Finished) && sources::is_customsforge_url(payload.url()) {
+                webview.app_handle().state::<UpdateCheck>().trigger(&webview);
+            }
         })
+        .on_document_title_changed(|webview, title| {
+            use tauri::Manager;
+            if let Some(report) = title.strip_prefix(UPDATE_CHECK_PREFIX) {
+                let app = webview.app_handle();
+                app.state::<UpdateCheck>().handle_report(app, report);
+            }
+        })
+        .initialization_script(UPDATE_CHECK_JS)
         .on_new_window(move |url, _features| {
             eprintln!("[customsforge] new window {url}");
             nav_app.state::<CfDownloads>().note_request(&url);
@@ -918,8 +939,220 @@ pub async fn open_customsforge(app: tauri::AppHandle, x: f64, y: f64, width: f64
     }
     window
         .add_child(builder, LogicalPosition::new(x, y), LogicalSize::new(width, height))
-        .map_err(fail)?;
-    Ok(())
+        .map_err(fail)
+}
+
+const UPDATE_CHECK_JS: &str = include_str!("updatecheck.js");
+const UPDATE_CHECK_PREFIX: &str = "GSCHK:";
+
+/// A running song update check: the ids sent to the page and whether the
+/// page has been asked yet (it can only be asked once it has loaded).
+struct CheckRun {
+    ids: Vec<String>,
+    triggered: bool,
+    done: usize,
+}
+
+/// State of the song update check, see `versions.rs` and `updatecheck.js`.
+#[derive(Default)]
+pub struct UpdateCheck {
+    run: Mutex<Option<CheckRun>>,
+}
+
+#[derive(Clone, Serialize)]
+struct CheckEvent {
+    /// "progress", "done", "login", "limited" or "error".
+    state: &'static str,
+    done: usize,
+    total: usize,
+}
+
+#[derive(serde::Deserialize)]
+struct CheckReport {
+    #[serde(rename = "type")]
+    kind: String,
+    id: Option<String>,
+    ok: Option<bool>,
+    version: Option<String>,
+    revised: Option<String>,
+}
+
+impl UpdateCheck {
+    fn lock(&self) -> MutexGuard<'_, Option<CheckRun>> {
+        self.run.lock().unwrap_or_else(|e| e.into_inner())
+    }
+
+    fn running(&self) -> bool {
+        self.lock().is_some()
+    }
+
+    /// Asks the page to start, once it is loaded on CustomsForge.
+    fn trigger(&self, view: &tauri::Webview) {
+        let mut run = self.lock();
+        let Some(run) = run.as_mut().filter(|r| !r.triggered) else { return };
+        let ids = serde_json::to_string(&run.ids).unwrap_or_else(|_| "[]".into());
+        if view.eval(format!("window.__gsCheckSongs && window.__gsCheckSongs({ids})")).is_ok() {
+            run.triggered = true;
+            eprintln!("[update-check] started for {} song(s)", run.ids.len());
+        }
+    }
+
+    /// Handles one message the page put into its title.
+    fn handle_report(&self, app: &tauri::AppHandle, raw: &str) {
+        use tauri::{Emitter, Manager};
+        let Ok(report) = serde_json::from_str::<CheckReport>(raw) else { return };
+        let mut guard = self.lock();
+        let Some(run) = guard.as_mut() else { return };
+        let total = run.ids.len();
+        let finish = |state: &'static str, done: usize| {
+            let _ = app.emit_to("main", "cdlc-update-check", CheckEvent { state, done, total });
+        };
+        match report.kind.as_str() {
+            "song" => {
+                // Only ids GuitarStar sent are accepted; values are untrusted text.
+                let Some(id) = report.id.filter(|id| run.ids.contains(id)) else { return };
+                run.done += 1;
+                if report.ok == Some(true) {
+                    let data_dir = &app.state::<Ctx>().data_dir;
+                    let (version, revised) =
+                        versions::validate_report(report.version.as_deref(), report.revised.as_deref());
+                    let mut store = VersionStore::load(data_dir);
+                    store.record(&id, version, revised, now());
+                    if let Err(e) = store.save(data_dir) {
+                        eprintln!("[update-check] could not save versions: {e}");
+                    }
+                }
+                finish("progress", run.done);
+            }
+            kind @ ("done" | "login" | "limited" | "error") => {
+                let state = match kind {
+                    "done" => "done",
+                    "login" => "login",
+                    "limited" => "limited",
+                    _ => "error",
+                };
+                eprintln!("[update-check] {state} after {} of {total}", run.done);
+                let done = run.done;
+                *guard = None;
+                finish(state, done);
+            }
+            _ => {}
+        }
+    }
+}
+
+#[derive(Serialize)]
+pub struct CheckStart {
+    started: bool,
+    /// Why nothing was started: "none" (no songs with a known CustomsForge id),
+    /// "running", "auto_done", "manual_limit" or "all_checked".
+    reason: Option<&'static str>,
+    count: usize,
+    manual_left: u32,
+}
+
+/// Starts a song update check. `manual` counts against the three manual
+/// checks per day; otherwise it is the automatic check, at most once a day.
+#[tauri::command]
+pub async fn cdlc_check_updates(
+    app: tauri::AppHandle,
+    ctx: State<'_, Ctx>,
+    cf: State<'_, CfDownloads>,
+    check: State<'_, UpdateCheck>,
+    manual: bool,
+) -> Result<CheckStart> {
+    let game = ctx.game_dir()?;
+    let now = now();
+    let mut store = VersionStore::load(&ctx.data_dir);
+    let refuse = |reason, store: &VersionStore| CheckStart {
+        started: false,
+        reason: Some(reason),
+        count: 0,
+        manual_left: store.manual_left(now),
+    };
+    if check.running() {
+        return Ok(refuse("running", &store));
+    }
+    let installed: Vec<String> = cdlc::list(&game, &ctx.data_dir)?.into_iter().map(|s| s.file_name).collect();
+    let ids: Vec<String> = {
+        let _guard = cf.lock_sources();
+        let sources = Sources::load(&ctx.data_dir);
+        installed.iter().filter_map(|f| sources.0.get(f).map(|s| s.cf_id.clone())).collect()
+    };
+    if ids.is_empty() {
+        return Ok(refuse("none", &store));
+    }
+    if let Err(refusal) = store.start_run(manual, now) {
+        let reason = match refusal {
+            versions::Refusal::AutoDoneToday => "auto_done",
+            versions::Refusal::ManualLimit => "manual_limit",
+        };
+        return Ok(refuse(reason, &store));
+    }
+    let selected = store.select(ids.iter().map(String::as_str), manual, now);
+    store.save(&ctx.data_dir)?;
+    if selected.is_empty() {
+        return Ok(refuse("all_checked", &store));
+    }
+    let count = selected.len();
+    *check.lock() = Some(CheckRun { ids: selected, triggered: false, done: 0 });
+    match customsforge_view(&app) {
+        // An existing view is already loaded; ask it right away.
+        Some(view) => check.trigger(&view),
+        // Otherwise a hidden view is created; it starts the check once loaded.
+        None => {
+            let view = create_customsforge_view(&app, 0.0, 0.0, 1.0, 1.0)?;
+            view.hide().ok();
+        }
+    }
+    Ok(CheckStart { started: true, reason: None, count, manual_left: store.manual_left(now) })
+}
+
+#[derive(Serialize)]
+pub struct SongUpdate {
+    cf_id: String,
+    version: Option<String>,
+    revised: Option<String>,
+}
+
+#[derive(Serialize)]
+pub struct UpdateStatus {
+    /// File name → newer version on CustomsForge.
+    updates: BTreeMap<String, SongUpdate>,
+    manual_left: u32,
+    last_check: Option<u64>,
+    running: bool,
+}
+
+#[tauri::command]
+pub fn cdlc_update_status(
+    ctx: State<'_, Ctx>,
+    cf: State<'_, CfDownloads>,
+    check: State<'_, UpdateCheck>,
+) -> Result<UpdateStatus> {
+    let game = ctx.game_dir()?;
+    let store = VersionStore::load(&ctx.data_dir);
+    let sources = {
+        let _guard = cf.lock_sources();
+        Sources::load(&ctx.data_dir)
+    };
+    let mut updates = BTreeMap::new();
+    for song in cdlc::list(&game, &ctx.data_dir)? {
+        let Some(source) = sources.0.get(&song.file_name) else { continue };
+        let Some(remote) = store.songs.get(&source.cf_id) else { continue };
+        if versions::update_available(song.version.as_deref(), Some(source.downloaded_at), remote) {
+            updates.insert(
+                song.file_name,
+                SongUpdate { cf_id: source.cf_id.clone(), version: remote.version.clone(), revised: remote.revised.clone() },
+            );
+        }
+    }
+    Ok(UpdateStatus {
+        updates,
+        manual_left: store.manual_left(now()),
+        last_check: store.songs.values().map(|v| v.checked_at).max(),
+        running: check.running(),
+    })
 }
 
 #[tauri::command]
