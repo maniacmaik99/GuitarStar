@@ -1,6 +1,6 @@
 [package]
 name = "guitarstar"
-version = "0.5.0"
+version = "0.5.1"
 description = "Rocksmith 2014 Remastered setup, mod and CDLC manager"
 authors = ["Maik Schultheiß"]
 license = "MIT"
