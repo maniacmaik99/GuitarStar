@@ -10,6 +10,7 @@ pub mod game;
 pub mod ini;
 pub mod linux;
 pub mod rsmods;
+pub mod saves;
 pub mod snapshot;
 pub mod state;
 pub mod steam;

@@ -47,6 +47,13 @@ pub fn run() {
             commands::install_rsmods,
             commands::open_rsmods_gui,
             commands::uninstall_rsmods,
+            commands::save_folders,
+            commands::save_backups,
+            commands::backup_saves,
+            commands::auto_backup_saves,
+            commands::restore_save_backup,
+            commands::delete_save_backup,
+            commands::open_save_folder,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

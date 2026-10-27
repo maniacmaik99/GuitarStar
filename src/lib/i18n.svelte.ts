@@ -284,6 +284,39 @@ const de = {
     originalText: "Nimmt alle Änderungen von GuitarStar zurück, z. B. wenn das Spiel nicht mehr startet.",
     restoreButton: "Originalzustand wiederherstellen",
   },
+  saves: {
+    title: "Spielstand-Sicherung",
+    intro:
+      "Dein Fortschritt (Profil, Statistiken, Einstellungen im Spiel) liegt im Steam-Cloud-Ordner von Rocksmith, nicht im Spielordner. GuitarStar kopiert ihn auf Wunsch und vor riskanten Aktionen in eigene Sicherungen.",
+    loading: "Spielstand wird gesucht …",
+    noFolder:
+      "Kein Spielstand gefunden. Rocksmith muss über Steam mindestens einmal gestartet worden sein; der Spielstand liegt unter Steam\\userdata\\<Konto>\\221680\\remote.",
+    found: "gefunden",
+    account: "Steam-Konto {account}",
+    files: "{count} Datei(en)",
+    lastChange: " · zuletzt geändert {date}",
+    openFolder: "Ordner öffnen",
+    opening: "Ordner wird geöffnet …",
+    backupNow: "Jetzt sichern",
+    backingUp: "Spielstand wird gesichert …",
+    backedUp: "Spielstand gesichert.",
+    autoHint:
+      "Automatisch gesichert wird einmal am Tag beim Start von GuitarStar und vor RSMods, dem CDLC-Enabler und dem Zurücksetzen des Spielordners. Von den automatischen Sicherungen bleiben die letzten 20 erhalten, von Hand gemachte werden nie automatisch gelöscht.",
+    backups: "Sicherungen",
+    noBackups: "Noch keine Sicherungen.",
+    automatic: "automatisch",
+    restore: "Wiederherstellen",
+    restoreTitle: "Spielstand wiederherstellen",
+    restoreConfirm:
+      "Spielstand vom {date} („{label}“) wiederherstellen? Rocksmith muss dafür geschlossen sein, sonst überschreibt das Spiel den Spielstand wieder. Der aktuelle Stand wird vorher gesichert.",
+    restoring: "Spielstand wird wiederhergestellt …",
+    restored:
+      "Spielstand wiederhergestellt. Falls Steam beim nächsten Start einen Cloud-Konflikt meldet, die lokalen Dateien behalten.",
+    delete: "Löschen",
+    deleteTitle: "Sicherung löschen",
+    deleteConfirm: "Die Sicherung vom {date} endgültig löschen?",
+    deleting: "Sicherung wird gelöscht …",
+  },
   settings: {
     language: "Sprache / Language",
     hideAdsOn: "Werbung wird beim nächsten Öffnen von CustomsForge ausgeblendet.",
@@ -621,6 +654,38 @@ const en: DeepPartial<Dict> = {
     undo: "Roll back",
     originalText: "Reverts all changes made by GuitarStar, e.g. if the game no longer starts.",
     restoreButton: "Restore original state",
+  },
+  saves: {
+    title: "Save backup",
+    intro:
+      "Your progress (profile, stats, in-game settings) lives in Rocksmith's Steam Cloud folder, not in the game folder. GuitarStar copies it into its own backups on request and before risky actions.",
+    loading: "Looking for your save …",
+    noFolder:
+      "No save found. Rocksmith has to be started through Steam at least once; the save is stored under Steam\\userdata\\<account>\\221680\\remote.",
+    found: "found",
+    account: "Steam account {account}",
+    files: "{count} file(s)",
+    lastChange: " · last changed {date}",
+    openFolder: "Open folder",
+    opening: "Opening folder …",
+    backupNow: "Back up now",
+    backingUp: "Backing up your save …",
+    backedUp: "Save backed up.",
+    autoHint:
+      "Automatic backups are made once a day when GuitarStar starts, and before RSMods, the CDLC Enabler and resetting the game folder. The latest 20 automatic backups are kept; manual ones are never deleted automatically.",
+    backups: "Backups",
+    noBackups: "No backups yet.",
+    automatic: "automatic",
+    restore: "Restore",
+    restoreTitle: "Restore save",
+    restoreConfirm:
+      "Restore the save from {date} (“{label}”)? Rocksmith must be closed, otherwise the game will overwrite the save again. Your current save is backed up first.",
+    restoring: "Restoring your save …",
+    restored: "Save restored. If Steam reports a cloud conflict on the next launch, keep the local files.",
+    delete: "Delete",
+    deleteTitle: "Delete backup",
+    deleteConfirm: "Permanently delete the backup from {date}?",
+    deleting: "Deleting backup …",
   },
   settings: {
     language: "Sprache / Language",

@@ -2,6 +2,7 @@
   import { ask } from "@tauri-apps/plugin-dialog";
   import { api, formatDate, type Overview, type Runner, type SnapshotSummary } from "$lib/api";
   import { t } from "$lib/i18n.svelte";
+  import SavesCard from "$lib/SavesCard.svelte";
 
   let { ov, run, busy }: { ov: Overview; run: Runner; busy: boolean } = $props();
 
@@ -54,6 +55,8 @@
     {t("history.restoreButton")}
   </button>
 </section>
+
+<SavesCard {run} {busy} />
 
 <style>
   ul {

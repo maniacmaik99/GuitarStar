@@ -15,7 +15,7 @@ use guitarstar_core::error::{AppError, Result};
 use guitarstar_core::game::{self, GameInfo, GameSettings};
 use guitarstar_core::snapshot::{SnapshotStore, SnapshotWriter};
 use guitarstar_core::state::{AppState, InstalledComponent};
-use guitarstar_core::{cdlc, display, linux, reqwest, rsmods, steam};
+use guitarstar_core::{cdlc, display, linux, reqwest, rsmods, saves, steam};
 
 const RS_ASIO_INI: &str = "RS_ASIO.ini";
 
@@ -64,6 +64,24 @@ impl Ctx {
 
     fn profiles_dir(&self) -> PathBuf {
         self.data_dir.join("profiles")
+    }
+
+    fn save_backups_dir(&self) -> PathBuf {
+        self.data_dir.join("save-backups")
+    }
+
+    /// Backs up every Rocksmith save before a risky action. Without a save
+    /// folder there is nothing to protect; if one exists but cannot be copied,
+    /// the action is aborted.
+    fn backup_saves_before(&self, label: &str) -> Result<()> {
+        for folder in saves::find_save_folders().into_iter().filter(|f| f.file_count > 0) {
+            saves::backup(Path::new(&folder.path), &self.save_backups_dir(), label, true).map_err(|e| {
+                AppError::msg(format!(
+                    "Dein Rocksmith-Spielstand konnte nicht gesichert werden, deshalb wurde abgebrochen. {e}"
+                ))
+            })?;
+        }
+        Ok(())
     }
 
     /// Runs `change` inside a snapshot; on error the partial change is rolled back.
@@ -445,10 +463,96 @@ pub async fn restore_snapshot(ctx: State<'_, Ctx>, id: String) -> Result<()> {
 #[tauri::command]
 pub async fn restore_original(ctx: State<'_, Ctx>) -> Result<()> {
     let _op = ctx.op.lock().await;
+    ctx.backup_saves_before("Automatisch vor dem Zurücksetzen des Spielordners")?;
     match ctx.snapshots().restore_original(&ctx.game_dir()?)? {
         Some(restored) => apply_restored_state(&ctx, restored),
         None => Ok(()),
     }
+}
+
+#[tauri::command]
+pub fn save_folders() -> Vec<saves::SaveFolder> {
+    saves::find_save_folders()
+}
+
+#[tauri::command]
+pub fn save_backups(ctx: State<'_, Ctx>) -> Result<Vec<saves::BackupInfo>> {
+    saves::list_backups(&ctx.save_backups_dir())
+}
+
+fn no_save_found() -> AppError {
+    AppError::msg("Kein Rocksmith-Spielstand gefunden. Rocksmith muss über Steam mindestens einmal gestartet worden sein.")
+}
+
+#[tauri::command]
+pub async fn backup_saves(ctx: State<'_, Ctx>, label: Option<String>) -> Result<Vec<saves::BackupInfo>> {
+    let _op = ctx.op.lock().await;
+    let folders = saves::find_save_folders();
+    if folders.is_empty() {
+        return Err(no_save_found());
+    }
+    let label = label.unwrap_or_else(|| "Von Hand gesichert".to_string());
+    folders
+        .iter()
+        .map(|f| saves::backup(Path::new(&f.path), &ctx.save_backups_dir(), &label, false))
+        .collect()
+}
+
+/// The daily backup on app start; returns whether one was made.
+#[tauri::command]
+pub async fn auto_backup_saves(ctx: State<'_, Ctx>) -> Result<bool> {
+    let _op = ctx.op.lock().await;
+    let root = ctx.save_backups_dir();
+    let backups = saves::list_backups(&root)?;
+    let mut made = false;
+    for folder in saves::find_save_folders() {
+        if saves::daily_backup_due(&folder, &backups, now()) {
+            saves::backup(Path::new(&folder.path), &root, "Automatisch beim Start", true)?;
+            made = true;
+        }
+    }
+    Ok(made)
+}
+
+/// The save folder a backup belongs to: the current one of the same Steam
+/// account, or the original location if Steam still has that account.
+fn restore_target(backup: &saves::BackupInfo) -> Result<PathBuf> {
+    if let Some(f) = saves::find_save_folders().into_iter().find(|f| f.account == backup.account) {
+        return Ok(PathBuf::from(f.path));
+    }
+    let source = PathBuf::from(&backup.source);
+    let account_dir = source.parent().and_then(Path::parent);
+    match account_dir {
+        Some(dir) if dir.is_dir() && saves::account_of(&source) == backup.account => Ok(source),
+        _ => Err(no_save_found()),
+    }
+}
+
+#[tauri::command]
+pub async fn restore_save_backup(ctx: State<'_, Ctx>, id: String) -> Result<()> {
+    let _op = ctx.op.lock().await;
+    let root = ctx.save_backups_dir();
+    let backup = saves::find_backup(&root, &id)?;
+    saves::restore(&root, &id, &restore_target(&backup)?)?;
+    Ok(())
+}
+
+#[tauri::command]
+pub async fn delete_save_backup(ctx: State<'_, Ctx>, id: String) -> Result<()> {
+    let _op = ctx.op.lock().await;
+    saves::delete_backup(&ctx.save_backups_dir(), &id)
+}
+
+#[tauri::command]
+pub fn open_save_folder(app: tauri::AppHandle, account: Option<String>) -> Result<()> {
+    use tauri_plugin_opener::OpenerExt;
+    let folder = saves::find_save_folders()
+        .into_iter()
+        .find(|f| account.as_ref().is_none_or(|a| &f.account == a))
+        .ok_or_else(no_save_found)?;
+    app.opener()
+        .open_path(folder.path, None::<&str>)
+        .map_err(|e| AppError::msg(format!("Der Ordner konnte nicht geöffnet werden: {e}")))
 }
 
 #[derive(Serialize)]
@@ -496,6 +600,7 @@ const ENABLER_URL: &str = "https://ignition4.customsforge.com/tools/download/cdl
 pub async fn install_cdlc_enabler(app: tauri::AppHandle, ctx: State<'_, Ctx>) -> Result<()> {
     use tauri_plugin_opener::OpenerExt;
     let _op = ctx.op.lock().await;
+    ctx.backup_saves_before("Automatisch vor CDLC-Enabler-Installation")?;
     let bytes = ctx.http.get(ENABLER_URL).send().await?.error_for_status()?.bytes().await?;
     if bytes.len() < 2 || &bytes[..2] != b"MZ" {
         return Err(AppError::msg("CustomsForge hat keine Installationsdatei geliefert. Bitte später erneut versuchen."));
@@ -525,6 +630,7 @@ pub async fn rsmods_status(ctx: State<'_, Ctx>) -> Result<rsmods::RsModsStatus> 
 pub async fn install_rsmods(app: tauri::AppHandle, ctx: State<'_, Ctx>) -> Result<String> {
     use tauri_plugin_opener::OpenerExt;
     let _op = ctx.op.lock().await;
+    ctx.backup_saves_before("Automatisch vor RSMods-Installation")?;
     let rel = components::github_releases(&ctx.http, rsmods::REPO, rsmods::INSTALLER_SUFFIX)
         .await?
         .into_iter()
@@ -549,6 +655,7 @@ pub async fn install_rsmods(app: tauri::AppHandle, ctx: State<'_, Ctx>) -> Resul
 #[tauri::command]
 pub async fn uninstall_rsmods(ctx: State<'_, Ctx>) -> Result<()> {
     let _op = ctx.op.lock().await;
+    ctx.backup_saves_before("Automatisch vor RSMods-Entfernung")?;
     let original_cache = ctx.snapshots().original_copy("cache.psarc")?;
     ctx.change_game_files("RSMods entfernt", |game, w| {
         for f in rsmods::installed_files(game) {
