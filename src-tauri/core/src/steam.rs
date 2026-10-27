@@ -7,7 +7,7 @@ use std::path::{Path, PathBuf};
 pub const ROCKSMITH_APP_ID: &str = "221680";
 pub const ROCKSMITH_EXE: &str = "Rocksmith2014.exe";
 
-fn steam_roots() -> Vec<PathBuf> {
+pub(crate) fn steam_roots() -> Vec<PathBuf> {
     let mut roots = Vec::new();
     #[cfg(windows)]
     {

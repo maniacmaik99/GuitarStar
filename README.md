@@ -23,7 +23,16 @@ Rocksmith 2014 läuft auf aktueller Hardware oft nur mit Bastelei: Audio-Interfa
 ### Geplant
 
 - Song-Infos direkt aus den Dateien (Stimmung, Pfade, Länge)
-- Linux / Steam Deck (Proton, wineasio)
+- Linux / Steam Deck vollständig unterstützen (siehe unten)
+
+### Linux / Steam Deck (Vorschau)
+
+Ab dem nächsten Release gibt es GuitarStar auch als AppImage und `.deb`. Rocksmith läuft unter Linux über Proton; GuitarStar
+- findet das Spiel in den Steam-Bibliotheken (auch Flatpak-Steam) und den Proton-Prefix (`compatdata/221680`),
+- erkennt, ob [wineasio](https://github.com/mdias/rs_asio/tree/master/docs/linux) im Prefix als 32-Bit-ASIO-Treiber registriert ist, und bietet ihn im Audio-Tab an,
+- zeigt die passenden Steam-Startoptionen zum Kopieren, damit Wine die Mod-DLLs lädt, z. B. `WINEDLLOVERRIDES="avrt=n,b;D3DX9_42=n,b" %command%`, und prüft (nur lesend), ob sie in Steam schon eingetragen sind.
+
+wineasio selbst und die Startoptionen richtest du weiterhin selbst ein (Steam → Rocksmith → Eigenschaften → Startoptionen). Noch nicht auf echter Linux-Hardware bzw. einem Steam Deck getestet: Bundles und Selbst-Update, das eingebettete CustomsForge-Fenster, der RSMods-Installer (Windows-Programm) und der Skalierungs-Fix (unter Wine wirkungslos). Rückmeldungen dazu sind sehr willkommen.
 
 ## Installation
 
@@ -40,7 +49,7 @@ Voraussetzungen zum Spielen:
 
 ## Selbst bauen
 
-Benötigt: [Rust](https://rustup.rs) (stable), [Node.js](https://nodejs.org) 20+, unter Windows WebView2 (in Windows 11 enthalten).
+Benötigt: [Rust](https://rustup.rs) (stable), [Node.js](https://nodejs.org) 20+, unter Windows WebView2 (in Windows 11 enthalten), unter Linux die [Tauri-Systempakete](https://tauri.app/start/prerequisites/#linux) (Debian/Ubuntu: `libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf build-essential libssl-dev libxdo-dev`).
 
 ```bash
 npm install
