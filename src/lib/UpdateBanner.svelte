@@ -1,58 +1,27 @@
 <script lang="ts">
   import { onMount } from "svelte";
-  import { check, type Update } from "@tauri-apps/plugin-updater";
-  import { relaunch } from "@tauri-apps/plugin-process";
-  import { errorText } from "$lib/api";
   import { t } from "$lib/i18n.svelte";
+  import { checkForUpdate, installUpdate, loadVersion, updater } from "$lib/updater.svelte";
 
-  let update = $state<Update | null>(null);
-  let progress = $state<number | null>(null);
-  let error = $state<string | null>(null);
-  let dismissed = $state(false);
-
-  onMount(async () => {
-    try {
-      update = await check();
-    } catch {
-      // Offline, or no release with update information yet: nothing to show.
-    }
+  onMount(() => {
+    loadVersion();
+    checkForUpdate(true);
   });
-
-  async function install() {
-    if (!update) return;
-    error = null;
-    let total = 0;
-    let done = 0;
-    progress = 0;
-    try {
-      await update.downloadAndInstall((event) => {
-        if (event.event === "Started") total = event.data.contentLength ?? 0;
-        else if (event.event === "Progress") {
-          done += event.data.chunkLength;
-          progress = total ? Math.round((done / total) * 100) : null;
-        }
-      });
-      await relaunch();
-    } catch (e) {
-      error = errorText(e);
-      progress = null;
-    }
-  }
 </script>
 
-{#if update && !dismissed}
+{#if updater.update && !updater.dismissed}
   <div class="update">
     <div>
-      <strong>{t("update.available", { version: update.version })}</strong>
-      <span class="muted">{t("update.current", { version: update.currentVersion })}</span>
-      {#if error}<div class="error">{t("update.failed", { error })}</div>{/if}
+      <strong>{t("update.available", { version: updater.update.version })}</strong>
+      <span class="muted">{t("update.current", { version: updater.update.currentVersion })}</span>
+      {#if updater.installError}<div class="error">{t("update.failed", { error: updater.installError })}</div>{/if}
     </div>
     <div class="row">
-      {#if progress !== null}
-        <span class="muted">{t("update.downloading", { progress })}</span>
+      {#if updater.progress !== null}
+        <span class="muted">{t("update.downloading", { progress: Math.max(updater.progress, 0) })}</span>
       {:else}
-        <button class="primary" onclick={install}>{t("update.now")}</button>
-        <button class="link" onclick={() => (dismissed = true)}>{t("update.later")}</button>
+        <button class="primary" onclick={installUpdate}>{t("update.now")}</button>
+        <button class="link" onclick={() => (updater.dismissed = true)}>{t("update.later")}</button>
       {/if}
     </div>
   </div>

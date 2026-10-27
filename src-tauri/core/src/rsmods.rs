@@ -13,6 +13,42 @@ pub const INSTALLER_SUFFIX: &str = ".exe";
 /// features rewrite.
 pub const PROTECTED_FILES: &[&str] = &["xinput1_3.dll", "RSMods.ini", "cache.psarc"];
 
+/// Files RSMods' installer puts directly into the game folder.
+const MOD_FILES: &[&str] = &["xinput1_3.dll", "xinput1_3.pdb", "RSMods.ini"];
+/// Folder with the RSMods settings program and its libraries.
+const GUI_DIR: &str = "RSMods";
+
+fn collect_files(dir: &Path, rel: &str, out: &mut Vec<String>) {
+    let Ok(entries) = fs::read_dir(dir) else { return };
+    for entry in entries.filter_map(|e| e.ok()) {
+        let name = entry.file_name().to_string_lossy().into_owned();
+        let child_rel = format!("{rel}/{name}");
+        let path = entry.path();
+        if path.is_dir() {
+            collect_files(&path, &child_rel, out);
+        } else {
+            out.push(child_rel);
+        }
+    }
+}
+
+/// Every file RSMods added to the game folder, relative to it. cache.psarc is
+/// not included: it belongs to the game and is restored, not deleted.
+/// RSMods' profile backups (`Profile_AutoBackups`) are left alone on purpose.
+pub fn installed_files(game_dir: &Path) -> Vec<String> {
+    let mut out: Vec<String> = MOD_FILES
+        .iter()
+        .filter(|f| game_dir.join(f).is_file())
+        .map(|f| f.to_string())
+        .collect();
+    collect_files(&game_dir.join(GUI_DIR), GUI_DIR, &mut out);
+    out
+}
+
+pub fn gui_dir(game_dir: &Path) -> PathBuf {
+    game_dir.join(GUI_DIR)
+}
+
 #[derive(Debug, Clone, Serialize)]
 pub struct RsModsStatus {
     pub installed: bool,
@@ -74,5 +110,20 @@ mod tests {
         assert_eq!(status(&game, Some(&dir.join("orig.psarc"))).cache_modified, Some(true));
         assert_eq!(status(&game, None).cache_modified, None);
         fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
+    fn lists_installed_files_but_not_profile_backups() {
+        let game = std::env::temp_dir().join(format!("guitarstar-test-rsmods-files-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&game);
+        fs::create_dir_all(game.join("RSMods").join("tools")).unwrap();
+        fs::create_dir_all(game.join("Profile_AutoBackups")).unwrap();
+        for f in ["xinput1_3.dll", "RSMods.ini", "RSMods/RSMods.exe", "RSMods/tools/x.dll", "Profile_AutoBackups/p.bak"] {
+            fs::write(game.join(f), b"x").unwrap();
+        }
+        let mut files = installed_files(&game);
+        files.sort();
+        assert_eq!(files, vec!["RSMods.ini", "RSMods/RSMods.exe", "RSMods/tools/x.dll", "xinput1_3.dll"]);
+        fs::remove_dir_all(&game).unwrap();
     }
 }

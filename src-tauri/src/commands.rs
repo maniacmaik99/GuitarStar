@@ -544,6 +544,30 @@ pub async fn install_rsmods(app: tauri::AppHandle, ctx: State<'_, Ctx>) -> Resul
     Ok(rel.version)
 }
 
+/// Removes everything RSMods added and puts back the original cache.psarc.
+/// Everything is saved first, so the removal itself can be undone.
+#[tauri::command]
+pub async fn uninstall_rsmods(ctx: State<'_, Ctx>) -> Result<()> {
+    let _op = ctx.op.lock().await;
+    let original_cache = ctx.snapshots().original_copy("cache.psarc")?;
+    ctx.change_game_files("RSMods entfernt", |game, w| {
+        for f in rsmods::installed_files(game) {
+            w.protect(&f)?;
+            fs::remove_file(game.join(&f))?;
+        }
+        // Only empty folders are left at this point.
+        let gui = rsmods::gui_dir(game);
+        if gui.is_dir() {
+            fs::remove_dir_all(gui)?;
+        }
+        if let Some(original) = &original_cache {
+            w.protect("cache.psarc")?;
+            fs::copy(original, game.join("cache.psarc"))?;
+        }
+        Ok(())
+    })
+}
+
 #[tauri::command]
 pub fn open_rsmods_gui(app: tauri::AppHandle, ctx: State<'_, Ctx>) -> Result<()> {
     use tauri_plugin_opener::OpenerExt;

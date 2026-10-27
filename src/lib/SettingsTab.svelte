@@ -2,6 +2,7 @@
   import { openUrl } from "@tauri-apps/plugin-opener";
   import { api, type Overview, type Runner } from "$lib/api";
   import { getLang, setLang, t, type Lang } from "$lib/i18n.svelte";
+  import { checkForUpdate, installUpdate, updater } from "$lib/updater.svelte";
 
   let { ov, run, busy }: { ov: Overview; run: Runner; busy: boolean } = $props();
 
@@ -15,6 +16,34 @@
     );
   }
 </script>
+
+<section class="card">
+  <h2>{t("update.title")}</h2>
+  <p>{t("update.installedVersion", { version: updater.version ?? "?" })}</p>
+  <div class="row">
+    {#if updater.update}
+      <button class="primary" disabled={updater.progress !== null} onclick={installUpdate}>
+        {updater.progress !== null
+          ? t("update.downloading", { progress: Math.max(updater.progress, 0) })
+          : `${t("update.now")} (${updater.update.version})`}
+      </button>
+    {:else}
+      <button disabled={updater.checking} onclick={() => checkForUpdate()}>
+        {updater.checking ? t("update.checking") : t("update.check")}
+      </button>
+      {#if updater.upToDate && !updater.checking}
+        <span class="badge ok">{t("update.upToDate")}</span>
+      {/if}
+    {/if}
+  </div>
+  {#if updater.checkError}
+    <p class="error-text">{t("update.checkFailed", { error: updater.checkError })}</p>
+  {/if}
+  {#if updater.installError}
+    <p class="error-text">{t("update.failed", { error: updater.installError })}</p>
+  {/if}
+  <p class="muted small">{t("update.autoHint")}</p>
+</section>
 
 <section class="card">
   <h2>{t("settings.language")}</h2>
@@ -66,6 +95,9 @@
 </section>
 
 <style>
+  .error-text {
+    color: var(--danger);
+  }
   .info {
     border: 1px solid var(--border);
     border-left: 3px solid var(--accent);

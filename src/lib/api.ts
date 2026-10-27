@@ -207,6 +207,7 @@ export const api = {
   rsmodsStatus: () => invoke<RsModsStatus>("rsmods_status"),
   installRsmods: () => invoke<string>("install_rsmods"),
   openRsmodsGui: () => invoke<void>("open_rsmods_gui"),
+  uninstallRsmods: () => invoke<void>("uninstall_rsmods"),
   customsforgeNavigate: (action: "back" | "forward" | "reload" | "home") =>
     invoke<void>("customsforge_navigate", { action }),
 };

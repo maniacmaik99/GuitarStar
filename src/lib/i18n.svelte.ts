@@ -42,6 +42,13 @@ const de = {
     downloading: "Wird geladen … {progress}%",
     now: "Jetzt aktualisieren",
     later: "später",
+    title: "Version & Updates",
+    installedVersion: "Installiert: GuitarStar {version}",
+    check: "Nach Updates suchen",
+    checking: "Suche nach Updates …",
+    upToDate: "Du hast die neueste Version.",
+    checkFailed: "Update-Prüfung fehlgeschlagen: {error}",
+    autoHint: "GuitarStar sucht außerdem bei jedem Start automatisch nach Updates.",
   },
   game: {
     keepVisibleOn: "Rocksmith minimiert sich ab dem nächsten Start nicht mehr.",
@@ -249,6 +256,12 @@ const de = {
     installRsmods: "RSMods installieren …",
     opening: "RSMods wird geöffnet …",
     openRsmods: "RSMods öffnen (Fast Load einschalten)",
+    rsmodsRemove: "RSMods entfernen",
+    rsmodsRemoveTitle: "RSMods entfernen",
+    rsmodsRemoveConfirm:
+      "RSMods komplett entfernen? GuitarStar löscht die RSMods-Dateien im Spielordner und stellt die originale cache.psarc wieder her (damit ist auch Fast Load weg). Deine Profil-Sicherungen von RSMods bleiben erhalten. Alles wird vorher gesichert und lässt sich im Verlauf zurückholen. RSMods und Rocksmith vorher schließen.",
+    rsmodsRemoving: "RSMods wird entfernt …",
+    rsmodsRemoved: "RSMods wurde entfernt.",
   },
   history: {
     undoOne: "„{label}“ rückgängig machen?",
@@ -369,6 +382,13 @@ const en: DeepPartial<Dict> = {
     downloading: "Downloading … {progress}%",
     now: "Update now",
     later: "later",
+    title: "Version & updates",
+    installedVersion: "Installed: GuitarStar {version}",
+    check: "Check for updates",
+    checking: "Checking for updates …",
+    upToDate: "You have the latest version.",
+    checkFailed: "Update check failed: {error}",
+    autoHint: "GuitarStar also checks for updates automatically on every start.",
   },
   game: {
     keepVisibleOn: "From the next launch on, Rocksmith no longer minimizes.",
@@ -574,6 +594,12 @@ const en: DeepPartial<Dict> = {
     installRsmods: "Install RSMods …",
     opening: "Opening RSMods …",
     openRsmods: "Open RSMods (turn on Fast Load)",
+    rsmodsRemove: "Remove RSMods",
+    rsmodsRemoveTitle: "Remove RSMods",
+    rsmodsRemoveConfirm:
+      "Remove RSMods completely? GuitarStar deletes the RSMods files in the game folder and restores the original cache.psarc (which also removes Fast Load). Your RSMods profile backups are kept. Everything is saved first and can be brought back from History. Close RSMods and Rocksmith first.",
+    rsmodsRemoving: "Removing RSMods …",
+    rsmodsRemoved: "RSMods has been removed.",
   },
   history: {
     undoOne: "Roll back “{label}”?",

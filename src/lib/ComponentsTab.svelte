@@ -30,6 +30,17 @@
     }
   }
 
+  async function uninstallRsmods() {
+    const ok = await ask(t("components.rsmodsRemoveConfirm"), {
+      title: t("components.rsmodsRemoveTitle"),
+      kind: "warning",
+    });
+    if (ok) {
+      await run(t("components.rsmodsRemoving"), () => api.uninstallRsmods(), t("components.rsmodsRemoved"));
+      await loadRsmods();
+    }
+  }
+
   let releases = $state<Record<string, ReleaseInfo[]>>({});
   let loadError = $state<Record<string, string>>({});
   let showAll = $state<Record<string, boolean>>({});
@@ -207,6 +218,9 @@
       </button>
     {/if}
     <button disabled={busy} onclick={loadRsmods}>{t("common.recheck")}</button>
+    {#if rsmods?.installed || rsmods?.gui}
+      <button class="danger" disabled={busy} onclick={uninstallRsmods}>{t("components.rsmodsRemove")}</button>
+    {/if}
   </div>
 </section>
 

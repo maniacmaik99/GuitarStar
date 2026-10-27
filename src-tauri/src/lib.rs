@@ -46,6 +46,7 @@ pub fn run() {
             commands::rsmods_status,
             commands::install_rsmods,
             commands::open_rsmods_gui,
+            commands::uninstall_rsmods,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

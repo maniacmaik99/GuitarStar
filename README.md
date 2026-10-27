@@ -1,10 +1,10 @@
 # GuitarStar
 
-**Setup-, Mod- und CDLC-Manager für Rocksmith® 2014 Edition – Remastered (Steam, Windows).**
+**Setup-, Mod- und CDLC-Manager für Rocksmith® 2014 Edition – Remastered (Steam; Windows, Linux/Steam Deck als Vorschau).**
 
 Rocksmith 2014 läuft auf aktueller Hardware oft nur mit Bastelei: Audio-Interfaces werden nicht unterstützt, das Rocksmith-Kabel hat spürbare Latenz, und mit Windows-Skalierung passt das Bild nicht auf den Monitor. GuitarStar richtet das mit ein paar Klicks ein – und kann jede Änderung wieder zurücknehmen.
 
-> *English:* GuitarStar is a desktop app that sets up Rocksmith 2014 Remastered for modern hardware: audio interfaces via RS_ASIO, display scaling, and (soon) custom songs. Every change to the game folder is backed up and can be undone. The UI is currently German only.
+> *English:* GuitarStar is a desktop app that sets up Rocksmith 2014 Remastered for modern hardware: audio interfaces via RS_ASIO, a display scaling fix, custom songs (CDLC) with a built-in CustomsForge browser, optional RSMods with Fast Load, and automatic app updates. Every change to the game folder is backed up and can be undone. The app is available in English and German (it follows your system language). Windows is the main platform; Linux/Steam Deck builds are a preview.
 
 ## Funktionen
 
@@ -14,20 +14,23 @@ Rocksmith 2014 läuft auf aktueller Hardware oft nur mit Bastelei: Audio-Interfa
 - **Kein Minimieren bei Fokusverlust** (optional): Im Vollbild-Fenster bleibt das Spiel sichtbar, wenn du auf einen zweiten Monitor klickst.
 - **Eigene Songs (CDLC):** CustomsForge im eingebauten Fenster – heruntergeladene Songs werden automatisch installiert. Dazu Drag & Drop für `.psarc`/`.zip`, Suche, Aktivieren/Deaktivieren und Löschen. GuitarStar arbeitet nur im Unterordner `dlc\GuitarStar`; die offiziellen Songs bleiben unberührt. Der CDLC-Enabler von CustomsForge lässt sich direkt aus der App installieren.
   Die Werbung auf CustomsForge wird von CustomsForge geschaltet und finanziert die Seite mit; sie lässt sich unter „Einstellungen“ ausblenden (standardmäßig aus).
-- **RSMods (optional):** Installation des offiziellen RSMods-Installers mit vorheriger Sicherung; darüber u. a. **Fast Load**, das die Intro-Logos beim Start überspringt.
+- **RSMods (optional):** Installation des offiziellen RSMods-Installers mit vorheriger Sicherung; darüber u. a. **Fast Load**, das die Intro-Logos beim Start überspringt. GuitarStar zeigt, ob Fast Load angewendet ist, und kann RSMods mit einem Klick wieder vollständig entfernen (inklusive originaler `cache.psarc`).
 - **Discord & Streaming:** Bei Tonausgabe über Windows läuft Rocksmith im geteilten Modus, sodass Discord parallel funktioniert und den Spielton übertragen kann. Der Audio-Tab zeigt das Windows-Ausgabegerät und warnt bei Bluetooth.
 - **Spieleinstellungen:** Auflösung, Anzeigemodus, Latenzpuffer, exklusiver Audiomodus.
 - **Komponenten mit Updates und Rollback:** Versionen kommen direkt von den offiziellen GitHub-Releases (mit Prüfsummen-Check), jede installierte Version bleibt offline verfügbar.
 - **Verlauf:** Vor jeder Änderung werden die betroffenen Dateien gesichert. Jede Änderung lässt sich zurücknehmen, auch komplett bis zum Originalzustand.
+- **Automatische Updates:** GuitarStar meldet neue Versionen beim Start und aktualisiert sich per Klick; unter „Einstellungen“ stehen die installierte Version und ein Knopf zum manuellen Prüfen. Updates sind signiert.
+- **Deutsch und Englisch:** Die Oberfläche folgt der Systemsprache (Deutsch bei deutschem System, sonst Englisch) und lässt sich in den Einstellungen umschalten.
 
 ### Geplant
 
-- Song-Infos direkt aus den Dateien (Stimmung, Pfade, Länge)
-- Linux / Steam Deck vollständig unterstützen (siehe unten)
+- Song-Infos in der Songliste (Stimmung, Arrangements, Länge)
+- Meldungen aus dem Hintergrundteil der App ebenfalls übersetzen (sie sind derzeit noch deutsch)
+- Linux / Steam Deck auf echter Hardware testen und ausbauen (siehe unten)
 
 ### Linux / Steam Deck (Vorschau)
 
-Ab dem nächsten Release gibt es GuitarStar auch als AppImage und `.deb`. Rocksmith läuft unter Linux über Proton; GuitarStar
+Ab Version 0.3.0 gibt es GuitarStar auch als AppImage und `.deb`. Rocksmith läuft unter Linux über Proton; GuitarStar
 - findet das Spiel in den Steam-Bibliotheken (auch Flatpak-Steam) und den Proton-Prefix (`compatdata/221680`),
 - erkennt, ob [wineasio](https://github.com/mdias/rs_asio/tree/master/docs/linux) im Prefix als 32-Bit-ASIO-Treiber registriert ist, und bietet ihn im Audio-Tab an,
 - zeigt die passenden Steam-Startoptionen zum Kopieren, damit Wine die Mod-DLLs lädt, z. B. `WINEDLLOVERRIDES="avrt=n,b;D3DX9_42=n,b" %command%`, und prüft (nur lesend), ob sie in Steam schon eingetragen sind.
@@ -36,11 +39,18 @@ wineasio selbst und die Startoptionen richtest du weiterhin selbst ein (Steam �
 
 ## Installation
 
-**[Neueste Version herunterladen](https://github.com/maniacmaik99/GuitarStar/releases)** – unter „Assets“ die Datei `GuitarStar_…_x64-setup.exe` laden und starten. Rust, Node.js o. Ä. werden dafür nicht gebraucht.
+**[Neueste Version herunterladen](https://github.com/maniacmaik99/GuitarStar/releases/latest)** – unter „Assets“:
 
-Das Setup ist (noch) nicht signiert, deshalb warnt Windows SmartScreen beim ersten Start: **Weitere Informationen → Trotzdem ausführen**.
+| System | Datei |
+|---|---|
+| Windows | `GuitarStar_…_x64-setup.exe` herunterladen und starten |
+| Linux / Steam Deck (Vorschau) | `GuitarStar_…_amd64.AppImage` (ausführbar machen und starten) oder `GuitarStar_…_amd64.deb` |
 
-Ab Version 0.2.0 meldet GuitarStar neue Versionen selbst und aktualisiert sich per Klick. Updates sind signiert; die App installiert nur Updates mit gültiger Signatur.
+Rust, Node.js o. Ä. werden dafür nicht gebraucht.
+
+Das Windows-Setup ist (noch) nicht signiert, deshalb warnt Windows SmartScreen beim ersten Start: **Weitere Informationen → Trotzdem ausführen**.
+
+Ab Version 0.2.0 meldet GuitarStar neue Versionen selbst und aktualisiert sich per Klick. Updates sind signiert; die App installiert nur Updates mit gültiger Signatur. Wer noch 0.1.0 hat, installiert die neueste Version einmal von Hand.
 
 Voraussetzungen zum Spielen:
 - Rocksmith 2014 Edition – Remastered in der **Steam-Version**
@@ -83,7 +93,7 @@ Einmalig nötig: der Signaturschlüssel als GitHub-Secret (`scripts/set-release-
 
 | Ordner | Inhalt |
 |---|---|
-| `src/` | Oberfläche (SvelteKit, TypeScript) |
+| `src/` | Oberfläche (SvelteKit, TypeScript); Texte auf Deutsch und Englisch in `src/lib/i18n.svelte.ts` |
 | `src-tauri/src/` | Tauri-App: Befehle zwischen Oberfläche und Kernlogik |
 | `src-tauri/core/` | Kernlogik ohne UI: Spielordner, INI-Dateien, Audio-Profile, Komponenten, Sicherungen |
 | `src-tauri/core/profiles/` | Geräteprofile (`devices.json`) und RS_ASIO-Vorlage |
@@ -96,7 +106,7 @@ Profile stehen in [`src-tauri/core/profiles/devices.json`](src-tauri/core/profil
 ## Wie GuitarStar mit dem Spiel umgeht
 
 - Am Spiel selbst wird nichts verändert; die `Rocksmith2014.exe` und ihr Kopierschutz bleiben unberührt.
-- Komponenten werden als zusätzliche DLLs in den Spielordner gelegt (`avrt.dll` für RS_ASIO, `dinput8.dll` für den Skalierungs-Fix) und über Konfigurationsdateien eingestellt.
+- Komponenten werden als zusätzliche DLLs in den Spielordner gelegt (`avrt.dll` für RS_ASIO, `dinput8.dll` für den Skalierungs-Fix) und über Konfigurationsdateien eingestellt. Ausnahme: RSMods‘ Fast Load verändert die Spieldatei `cache.psarc`; GuitarStar sichert vorher das Original und kann es wiederherstellen.
 - Alles, was GuitarStar im Spielordner anlegt oder ändert, wird vorher gesichert und kann über „Verlauf“ zurückgenommen werden.
 
 ## Danksagung
