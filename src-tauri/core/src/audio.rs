@@ -105,10 +105,21 @@ pub fn asio_drivers() -> Vec<AsioDriver> {
         .collect()
 }
 
-/// On Linux the drivers live in the Proton prefix registry (wineasio); not supported yet.
 #[cfg(not(windows))]
 pub fn asio_drivers() -> Vec<AsioDriver> {
     Vec::new()
+}
+
+/// ASIO drivers the game can see: the Windows registry on Windows, the
+/// registry of the game's Proton prefix (wineasio) elsewhere.
+pub fn asio_drivers_for(game_dir: Option<&Path>) -> Vec<AsioDriver> {
+    if cfg!(windows) {
+        return asio_drivers();
+    }
+    game_dir
+        .and_then(crate::steam::proton_prefix)
+        .map(|pfx| crate::linux::prefix_asio_drivers(&pfx))
+        .unwrap_or_default()
 }
 
 /// The Windows default playback device, i.e. where "Windows" output mode plays.

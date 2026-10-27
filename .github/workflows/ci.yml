@@ -24,6 +24,26 @@ jobs:
         working-directory: src-tauri
         run: cargo test -p guitarstar_core
 
+  app-linux:
+    name: App build check (Linux)
+    # Same system as the Linux release job, so a broken Linux build shows up on every push.
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v5
+      - name: Install Tauri system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf \
+            build-essential curl wget file libxdo-dev libssl-dev
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+      # A debug check uses devUrl, so the frontend does not need to be built first.
+      - name: Check app crate
+        working-directory: src-tauri
+        run: cargo check --workspace --all-targets
+
   dpi-fix:
     name: dinput8.dll (32-bit)
     runs-on: windows-latest

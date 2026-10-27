@@ -8,6 +8,7 @@ pub mod display;
 pub mod error;
 pub mod game;
 pub mod ini;
+pub mod linux;
 pub mod rsmods;
 pub mod snapshot;
 pub mod state;

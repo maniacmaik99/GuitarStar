@@ -21,6 +21,7 @@ pub fn run() {
             commands::list_profiles,
             commands::save_profile,
             commands::list_asio_drivers,
+            commands::linux_setup_status,
             commands::apply_audio_config,
             commands::component_releases,
             commands::install_component,

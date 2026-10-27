@@ -15,7 +15,7 @@ use guitarstar_core::error::{AppError, Result};
 use guitarstar_core::game::{self, GameInfo, GameSettings};
 use guitarstar_core::snapshot::{SnapshotStore, SnapshotWriter};
 use guitarstar_core::state::{AppState, InstalledComponent};
-use guitarstar_core::{cdlc, display, reqwest, rsmods, steam};
+use guitarstar_core::{cdlc, display, linux, reqwest, rsmods, steam};
 
 const RS_ASIO_INI: &str = "RS_ASIO.ini";
 
@@ -229,8 +229,20 @@ pub fn save_profile(ctx: State<'_, Ctx>, profile: DeviceProfile) -> Result<()> {
 }
 
 #[tauri::command]
-pub fn list_asio_drivers() -> Vec<AsioDriver> {
-    audio::asio_drivers()
+pub fn list_asio_drivers(ctx: State<'_, Ctx>) -> Vec<AsioDriver> {
+    let game_dir = ctx.state().game_dir.map(PathBuf::from);
+    audio::asio_drivers_for(game_dir.as_deref())
+}
+
+/// Proton setup (wineasio, Steam launch options); `None` on Windows or
+/// before a game folder is chosen.
+#[tauri::command]
+pub fn linux_setup_status(ctx: State<'_, Ctx>) -> Option<linux::LinuxSetupStatus> {
+    if !cfg!(target_os = "linux") {
+        return None;
+    }
+    let game_dir = ctx.state().game_dir.map(PathBuf::from)?;
+    Some(linux::setup_status(&game_dir))
 }
 
 #[tauri::command]
