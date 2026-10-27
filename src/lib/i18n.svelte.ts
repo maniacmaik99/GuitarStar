@@ -104,7 +104,8 @@ const de = {
     gotoComponents: "Zu den Komponenten",
     searchingDrivers: "Suche Audio-Treiber …",
     noDriverTitle: "Kein ASIO-Treiber gefunden",
-    linuxHint: "Unter Linux läuft ASIO über wineasio im Proton-Prefix. Diese Einrichtung wird später unterstützt.",
+    linuxHint:
+      "Unter Linux läuft ASIO über wineasio im Proton-Prefix – siehe die Karte „Linux / Steam Deck (Proton)“ oben.",
     noDriverText:
       "Installiere den Treiber deines Audio-Interfaces (z. B. „Focusrite Control“ für Scarlett-Geräte), schließ das Gerät an und öffne diesen Tab erneut. Ohne Interface-Treiber hilft ASIO4ALL.",
     device: "Gerät",
@@ -290,6 +291,35 @@ const de = {
       "Schreibt beim Spielen Fenster- und Video-Ereignisse in GuitarStar-window.log im Spielordner. Nur für die Fehlersuche nötig – sonst aus lassen.",
     dllLogUnavailable: "Erst verfügbar, wenn der Skalierungs-Fix installiert ist.",
   },
+  linux: {
+    recheck: "neu prüfen",
+    copyFailed: "Kopieren nicht möglich – bitte die Zeile von Hand markieren und kopieren.",
+    prefix: "Proton-Prefix",
+    found: "gefunden",
+    missing: "fehlt",
+    prefixMissing: "Rocksmith einmal über Steam mit Proton starten, damit der Prefix (compatdata/221680) angelegt wird.",
+    registered: "registriert",
+    notFound: "nicht gefunden",
+    dllInPrefix: "DLL im Prefix",
+    wineasioHelp:
+      "RS_ASIO spricht unter Linux über wineasio mit JACK/PipeWire. wineasio muss als 32-Bit-Treiber im Proton-Prefix von Rocksmith registriert sein, z. B. mit „protontricks 221680“ oder nach der RS_ASIO-Anleitung für Linux. Danach diese Karte neu prüfen.",
+    docs: "RS_ASIO-Anleitung für Linux",
+    driversInPrefix: "ASIO-Treiber im Prefix: {list}",
+    only64: " (nur 64-Bit)",
+    launchOptions: "Steam-Startoptionen",
+    notNeeded: "nicht nötig",
+    set: "gesetzt",
+    launchMissing: "fehlen",
+    notCheckable: "nicht prüfbar",
+    launchHelp:
+      "Wine lädt die Mod-DLLs im Spielordner nur mit diesen Startoptionen. In Steam: Rocksmith 2014 → Eigenschaften → Allgemein → Startoptionen, Zeile einfügen.",
+    copy: "Kopieren",
+    copied: "Kopiert",
+    current: "Aktuell eingetragen: {value} – es fehlt: {missing}.",
+    noneSet: "Für Rocksmith sind noch keine Startoptionen eingetragen.",
+    steamSavesOnExit: "Steam speichert Änderungen erst beim Beenden; danach neu prüfen.",
+    noModNeeds: "Im Spielordner ist noch keine Mod installiert, die Startoptionen braucht.",
+  },
 };
 
 type Dict = typeof de;
@@ -400,7 +430,7 @@ const en: DeepPartial<Dict> = {
     gotoComponents: "Go to Components",
     searchingDrivers: "Looking for audio drivers …",
     noDriverTitle: "No ASIO driver found",
-    linuxHint: "On Linux, ASIO runs through wineasio in the Proton prefix. Setting this up will be supported later.",
+    linuxHint: "On Linux, ASIO runs through wineasio in the Proton prefix – see the “Linux / Steam Deck (Proton)” card above.",
     noDriverText:
       "Install the driver for your audio interface (e.g. “Focusrite Control” for Scarlett devices), connect the device and open this tab again. Without an interface driver, ASIO4ALL can help.",
     device: "Device",
@@ -584,6 +614,35 @@ const en: DeepPartial<Dict> = {
     dllLogHint:
       "While playing, writes window and video events to GuitarStar-window.log in the game folder. Only needed for troubleshooting – otherwise leave it off.",
     dllLogUnavailable: "Only available once the scaling fix is installed.",
+  },
+  linux: {
+    recheck: "check again",
+    copyFailed: "Copying is not possible – please select and copy the line by hand.",
+    prefix: "Proton prefix",
+    found: "found",
+    missing: "missing",
+    prefixMissing: "Start Rocksmith once through Steam with Proton so the prefix (compatdata/221680) gets created.",
+    registered: "registered",
+    notFound: "not found",
+    dllInPrefix: "DLL in prefix",
+    wineasioHelp:
+      "On Linux, RS_ASIO talks to JACK/PipeWire through wineasio. wineasio has to be registered as a 32-bit driver in Rocksmith's Proton prefix, e.g. with “protontricks 221680” or following the RS_ASIO Linux guide. Then check this card again.",
+    docs: "RS_ASIO Linux guide",
+    driversInPrefix: "ASIO drivers in the prefix: {list}",
+    only64: " (64-bit only)",
+    launchOptions: "Steam launch options",
+    notNeeded: "not needed",
+    set: "set",
+    launchMissing: "missing",
+    notCheckable: "can't be checked",
+    launchHelp:
+      "Wine only loads the mod DLLs in the game folder with these launch options. In Steam: Rocksmith 2014 → Properties → General → Launch Options, paste the line.",
+    copy: "Copy",
+    copied: "Copied",
+    current: "Currently set: {value} – missing: {missing}.",
+    noneSet: "No launch options are set for Rocksmith yet.",
+    steamSavesOnExit: "Steam only saves changes when it exits; check again afterwards.",
+    noModNeeds: "No mod that needs launch options is installed in the game folder yet.",
   },
 };
 

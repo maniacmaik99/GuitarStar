@@ -10,6 +10,7 @@
     type Runner,
   } from "$lib/api";
   import { t } from "$lib/i18n.svelte";
+  import LinuxSetup from "$lib/LinuxSetup.svelte";
 
   let { ov, run, busy, gotoComponents }: { ov: Overview; run: Runner; busy: boolean; gotoComponents: () => void } =
     $props();
@@ -96,6 +97,10 @@
     }
   }
 </script>
+
+{#if ov.platform === "linux"}
+  <LinuxSetup {ov} />
+{/if}
 
 {#if !rsAsioInstalled}
   <section class="card">

@@ -2,6 +2,7 @@
   import { onMount } from "svelte";
   import { openUrl } from "@tauri-apps/plugin-opener";
   import type { Overview } from "$lib/api";
+  import { t } from "$lib/i18n.svelte";
   import { linuxSetupStatus, type LinuxSetupStatus } from "$lib/linux";
 
   // `ov` is only used to reload when the game folder or installed components change.
@@ -44,7 +45,7 @@
       copied = true;
       setTimeout(() => (copied = false), 2000);
     } catch {
-      error = "Kopieren nicht möglich – bitte die Zeile von Hand markieren und kopieren.";
+      error = t("linux.copyFailed");
     }
   }
 </script>
@@ -53,7 +54,7 @@
   <section class="card">
     <div class="row head">
       <h2>Linux / Steam Deck (Proton)</h2>
-      <button class="link" onclick={load}>neu prüfen</button>
+      <button class="link" onclick={load}>{t("linux.recheck")}</button>
     </div>
     {#if error}
       <div class="hint">{error}</div>
@@ -61,20 +62,17 @@
     {#if status}
       <div class="item">
         <div class="row">
-          <strong>Proton-Prefix</strong>
+          <strong>{t("linux.prefix")}</strong>
           {#if status.proton_prefix}
-            <span class="badge ok">gefunden</span>
+            <span class="badge ok">{t("linux.found")}</span>
           {:else}
-            <span class="badge warn">fehlt</span>
+            <span class="badge warn">{t("linux.missing")}</span>
           {/if}
         </div>
         {#if status.proton_prefix}
           <div class="muted path">{status.proton_prefix}</div>
         {:else}
-          <p class="muted">
-            Rocksmith einmal über Steam mit Proton starten, damit der Prefix (<code>compatdata/221680</code>) angelegt
-            wird.
-          </p>
+          <p class="muted">{t("linux.prefixMissing")}</p>
         {/if}
       </div>
 
@@ -82,65 +80,58 @@
         <div class="row">
           <strong>wineasio (32-Bit)</strong>
           {#if status.wineasio_registered}
-            <span class="badge ok">registriert</span>
+            <span class="badge ok">{t("linux.registered")}</span>
           {:else}
-            <span class="badge warn">nicht gefunden</span>
+            <span class="badge warn">{t("linux.notFound")}</span>
           {/if}
           {#if status.wineasio_dll_in_prefix}
-            <span class="badge">DLL im Prefix</span>
+            <span class="badge">{t("linux.dllInPrefix")}</span>
           {/if}
         </div>
         {#if !status.wineasio_registered}
-          <p class="muted">
-            RS_ASIO spricht unter Linux über wineasio mit JACK/PipeWire. wineasio muss als 32-Bit-Treiber im
-            Proton-Prefix von Rocksmith registriert sein, z. B. mit <code>protontricks 221680</code> bzw. nach der
-            <button class="link inline" onclick={() => openUrl(RS_ASIO_LINUX_DOCS)}>RS_ASIO-Anleitung für Linux</button>.
-            Danach diese Karte neu prüfen.
-          </p>
+          <p class="muted">{t("linux.wineasioHelp")}</p>
+          <button class="link inline" onclick={() => openUrl(RS_ASIO_LINUX_DOCS)}>{t("linux.docs")}</button>
         {/if}
         {#if status.asio_drivers.length}
           <div class="muted">
-            ASIO-Treiber im Prefix: {status.asio_drivers
-              .map((d) => d.name + (d.has_32bit ? "" : " (nur 64-Bit)"))
-              .join(", ")}
+            {t("linux.driversInPrefix", {
+              list: status.asio_drivers.map((d) => d.name + (d.has_32bit ? "" : t("linux.only64"))).join(", "),
+            })}
           </div>
         {/if}
       </div>
 
       <div class="item">
         <div class="row">
-          <strong>Steam-Startoptionen</strong>
+          <strong>{t("linux.launchOptions")}</strong>
           {#if !status.launch_options}
-            <span class="badge">nicht nötig</span>
+            <span class="badge">{t("linux.notNeeded")}</span>
           {:else if launchOk}
-            <span class="badge ok">gesetzt</span>
+            <span class="badge ok">{t("linux.set")}</span>
           {:else if status.launch_options_checked}
-            <span class="badge warn">fehlen</span>
+            <span class="badge warn">{t("linux.launchMissing")}</span>
           {:else}
-            <span class="badge">nicht prüfbar</span>
+            <span class="badge">{t("linux.notCheckable")}</span>
           {/if}
         </div>
         {#if status.launch_options}
-          <p class="muted">
-            Wine lädt die Mod-DLLs im Spielordner nur mit diesen Startoptionen. In Steam: Rocksmith 2014 →
-            Eigenschaften → Allgemein → Startoptionen, Zeile einfügen.
-          </p>
+          <p class="muted">{t("linux.launchHelp")}</p>
           <div class="row">
             <code class="line">{status.launch_options}</code>
-            <button onclick={copy}>{copied ? "Kopiert" : "Kopieren"}</button>
+            <button onclick={copy}>{copied ? t("linux.copied") : t("linux.copy")}</button>
           </div>
           {#if status.launch_options_checked && !launchOk}
             <p class="muted">
               {#if status.current_launch_options}
-                Aktuell eingetragen: <code>{status.current_launch_options}</code> – es fehlt: {status.missing.join(", ")}.
+                {t("linux.current", { value: status.current_launch_options, missing: status.missing.join(", ") })}
               {:else}
-                Für Rocksmith sind noch keine Startoptionen eingetragen.
+                {t("linux.noneSet")}
               {/if}
-              Steam speichert Änderungen erst beim Beenden; danach neu prüfen.
+              {t("linux.steamSavesOnExit")}
             </p>
           {/if}
         {:else}
-          <p class="muted">Im Spielordner ist noch keine Mod installiert, die Startoptionen braucht.</p>
+          <p class="muted">{t("linux.noModNeeds")}</p>
         {/if}
       </div>
     {/if}
