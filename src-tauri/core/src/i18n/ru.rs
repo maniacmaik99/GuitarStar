@@ -74,4 +74,12 @@ pub const TABLE: &[(&str, &str)] = &[
     ("labels.autoOnStart", "Автоматически при запуске"),
     ("labels.manual", "Сохранено вручную"),
     ("labels.beforeRestore", "Перед восстановлением"),
+    // Device profiles (`profiles/devices.json`).
+    ("profile.variant.gen2_3", "2-е/3-е поколение"),
+    ("profile.variant.gen4", "4-е поколение"),
+    ("profile.variant.gen2", "2-е поколение"),
+    ("profile.variant.soundcard", "звуковая карта"),
+    ("profile.variant.asio4all", "через ASIO4ALL"),
+    ("profile.note.buffer", "Если звук искажается, увеличьте размер буфера до 96 или 192."),
+    ("profile.note.outputOnly", "Через ASIO идёт только вывод; вход инструмента по-прежнему через Windows (например, кабель Rocksmith)."),
 ];

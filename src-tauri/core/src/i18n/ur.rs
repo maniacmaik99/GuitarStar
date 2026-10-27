@@ -74,4 +74,12 @@ pub const TABLE: &[(&str, &str)] = &[
     ("labels.autoOnStart", "شروع ہونے پر خودکار"),
     ("labels.manual", "دستی بیک اپ"),
     ("labels.beforeRestore", "بحالی سے پہلے"),
+    // Device profiles (`profiles/devices.json`).
+    ("profile.variant.gen2_3", "دوسری/تیسری جنریشن"),
+    ("profile.variant.gen4", "چوتھی جنریشن"),
+    ("profile.variant.gen2", "دوسری جنریشن"),
+    ("profile.variant.soundcard", "ساؤنڈ کارڈ"),
+    ("profile.variant.asio4all", "ASIO4ALL کے ذریعے"),
+    ("profile.note.buffer", "اگر آواز خراب ہو تو بفر سائز 96 یا 192 کر دیں۔"),
+    ("profile.note.outputOnly", "صرف آؤٹ پٹ ASIO سے؛ انسٹرومنٹ ان پٹ پہلے کی طرح Windows سے (مثلاً Rocksmith کیبل)۔"),
 ];

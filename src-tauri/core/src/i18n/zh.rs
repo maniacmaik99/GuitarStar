@@ -74,4 +74,12 @@ pub const TABLE: &[(&str, &str)] = &[
     ("labels.autoOnStart", "启动时自动备份"),
     ("labels.manual", "手动备份"),
     ("labels.beforeRestore", "恢复前"),
+    // Device profiles (`profiles/devices.json`).
+    ("profile.variant.gen2_3", "第 2/3 代"),
+    ("profile.variant.gen4", "第 4 代"),
+    ("profile.variant.gen2", "第 2 代"),
+    ("profile.variant.soundcard", "声卡"),
+    ("profile.variant.asio4all", "通过 ASIO4ALL"),
+    ("profile.note.buffer", "如果声音失真，请将缓冲区大小调到 96 或 192。"),
+    ("profile.note.outputOnly", "仅输出走 ASIO；乐器输入仍通过 Windows（例如 Rocksmith 线缆）。"),
 ];

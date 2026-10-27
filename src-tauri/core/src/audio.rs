@@ -35,12 +35,13 @@ pub struct DeviceProfile {
     pub enable_ref_count_hack: Option<bool>,
     #[serde(default)]
     pub notes: Option<String>,
-    /// English name and notes of a bundled profile; `list_profiles` puts them
-    /// into `name`/`notes` when the UI is in English.
+    /// Bundled profiles: translation keys (`profile.variant.*`, `profile.note.*`)
+    /// that `list_profiles` turns into a name suffix like "(2nd/3rd gen)" and
+    /// into `notes`, in the current language.
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub name_en: Option<String>,
+    pub variant_key: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub notes_en: Option<String>,
+    pub notes_key: Option<String>,
     #[serde(default)]
     pub source: Option<String>,
     /// Set for profiles the user created, false for the bundled ones.
@@ -52,11 +53,11 @@ pub struct DeviceProfile {
 fn builtin_profiles(lang: Lang) -> Result<Vec<DeviceProfile>> {
     let mut profiles: Vec<DeviceProfile> = serde_json::from_str(BUILTIN_PROFILES)?;
     for p in &mut profiles {
-        let (name_en, notes_en) = (p.name_en.take(), p.notes_en.take());
-        // Profile texts exist in German and English; every other language uses English.
-        if lang != Lang::De {
-            p.name = name_en.unwrap_or_else(|| p.name.clone());
-            p.notes = notes_en.or(p.notes.take());
+        if let Some(key) = p.variant_key.take() {
+            p.name = format!("{} ({})", p.name, i18n::tr_in(lang, &key, &[]));
+        }
+        if let Some(key) = p.notes_key.take() {
+            p.notes = Some(i18n::tr_in(lang, &key, &[]));
         }
     }
     Ok(profiles)
@@ -269,10 +270,16 @@ mod tests {
         assert!(de.notes.unwrap().starts_with("Nur Ausgabe"));
         assert_eq!(en.name, "Asus Strix Soar (sound card)");
         assert!(en.notes.unwrap().starts_with("Output only"));
-        assert!(en.name_en.is_none() && en.notes_en.is_none());
-        // Every German note has an English one.
+        assert!(en.variant_key.is_none() && en.notes_key.is_none());
+        let ru = find(Lang::Ru);
+        assert_eq!(ru.name, "Asus Strix Soar (звуковая карта)");
+        // Every key in the profile file exists in every language.
         for p in serde_json::from_str::<Vec<DeviceProfile>>(BUILTIN_PROFILES).unwrap() {
-            assert_eq!(p.notes.is_some(), p.notes_en.is_some(), "{}", p.id);
+            for key in p.variant_key.iter().chain(p.notes_key.iter()) {
+                for lang in i18n::ALL {
+                    assert!(i18n::has_key(lang, key), "{key} missing in {lang:?} ({})", p.id);
+                }
+            }
         }
     }
 

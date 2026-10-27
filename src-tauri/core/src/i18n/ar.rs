@@ -74,4 +74,12 @@ pub const TABLE: &[(&str, &str)] = &[
     ("labels.autoOnStart", "تلقائيًا عند التشغيل"),
     ("labels.manual", "نسخ احتياطي يدوي"),
     ("labels.beforeRestore", "قبل الاستعادة"),
+    // Device profiles (`profiles/devices.json`).
+    ("profile.variant.gen2_3", "الجيل الثاني/الثالث"),
+    ("profile.variant.gen4", "الجيل الرابع"),
+    ("profile.variant.gen2", "الجيل الثاني"),
+    ("profile.variant.soundcard", "بطاقة صوت"),
+    ("profile.variant.asio4all", "عبر ASIO4ALL"),
+    ("profile.note.buffer", "إذا كان الصوت مشوهًا، فارفع حجم المخزن المؤقت إلى 96 أو 192."),
+    ("profile.note.outputOnly", "الإخراج فقط عبر ASIO؛ أما إدخال الآلة فيبقى عبر Windows (مثل كابل Rocksmith)."),
 ];

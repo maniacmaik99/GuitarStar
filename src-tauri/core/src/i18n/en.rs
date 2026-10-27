@@ -74,4 +74,12 @@ pub const TABLE: &[(&str, &str)] = &[
     ("labels.autoOnStart", "Automatically on start"),
     ("labels.manual", "Backed up manually"),
     ("labels.beforeRestore", "Before restore"),
+    // Device profiles (`profiles/devices.json`).
+    ("profile.variant.gen2_3", "2nd/3rd gen"),
+    ("profile.variant.gen4", "4th gen"),
+    ("profile.variant.gen2", "2nd gen"),
+    ("profile.variant.soundcard", "sound card"),
+    ("profile.variant.asio4all", "via ASIO4ALL"),
+    ("profile.note.buffer", "If the sound is distorted, increase the buffer size to 96 or 192."),
+    ("profile.note.outputOnly", "Output only through ASIO; the instrument input still goes through Windows (e.g. Rocksmith cable)."),
 ];

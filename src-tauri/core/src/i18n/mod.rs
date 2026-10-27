@@ -38,7 +38,7 @@ pub enum Lang {
     Ur,
 }
 
-const ALL: [Lang; 11] = [
+pub const ALL: [Lang; 11] = [
     Lang::De,
     Lang::En,
     Lang::Zh,
@@ -104,6 +104,11 @@ fn table(lang: Lang) -> &'static [(&'static str, &'static str)] {
 
 fn lookup(lang: Lang, key: &str) -> Option<&'static str> {
     table(lang).iter().find(|(k, _)| *k == key).map(|(_, v)| *v)
+}
+
+/// Whether `lang`'s own table has `key` (without falling back).
+pub fn has_key(lang: Lang, key: &str) -> bool {
+    lookup(lang, key).is_some()
 }
 
 /// Replaces `{name}` with the value of `name`; unknown placeholders stay as they are.
