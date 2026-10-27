@@ -11,6 +11,7 @@ pub mod ini;
 pub mod linux;
 pub mod rsmods;
 pub mod snapshot;
+pub mod sources;
 pub mod state;
 pub mod steam;
 

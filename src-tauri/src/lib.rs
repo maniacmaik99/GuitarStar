@@ -11,6 +11,7 @@ pub fn run() {
         .setup(|app| {
             let data_dir = app.path().app_data_dir()?;
             app.manage(commands::Ctx::new(data_dir));
+            app.manage(commands::CfDownloads::default());
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -36,6 +37,9 @@ pub fn run() {
             commands::cdlc_import,
             commands::cdlc_set_enabled,
             commands::cdlc_delete,
+            commands::cdlc_bulk,
+            commands::cdlc_sources,
+            commands::customsforge_open_url,
             commands::install_cdlc_enabler,
             commands::open_customsforge,
             commands::customsforge_bounds,

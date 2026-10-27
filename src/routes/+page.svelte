@@ -29,6 +29,8 @@
   let notice = $state<string | null>(null);
   let detected = $state<string[]>([]);
   let browserOpen = $state(false);
+  /** Page to show when the CustomsForge layer opens, e.g. a song's page. */
+  let browserUrl = $state<string | undefined>(undefined);
 
   async function refresh() {
     ov = await api.overview();
@@ -127,7 +129,15 @@
       {:else if tab === "audio"}
         <AudioTab {ov} {run} busy={!!busy} gotoComponents={() => (tab = "components")} />
       {:else if tab === "songs"}
-        <SongsTab {ov} {run} busy={!!busy} openBrowser={() => (browserOpen = true)} />
+        <SongsTab
+          {ov}
+          {run}
+          busy={!!busy}
+          openBrowser={(url) => {
+            browserUrl = url;
+            browserOpen = true;
+          }}
+        />
       {:else if tab === "components"}
         <ComponentsTab {ov} {run} busy={!!busy} />
       {:else if tab === "history"}
@@ -140,7 +150,7 @@
 </div>
 
 {#if browserOpen}
-  <BrowserLayer onclose={() => (browserOpen = false)} />
+  <BrowserLayer startUrl={browserUrl} onclose={() => (browserOpen = false)} />
 {/if}
 
 <style>

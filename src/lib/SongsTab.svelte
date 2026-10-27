@@ -1,24 +1,44 @@
 <script lang="ts">
   import { onMount } from "svelte";
+  import { SvelteSet } from "svelte/reactivity";
   import { listen } from "@tauri-apps/api/event";
   import { getCurrentWebview } from "@tauri-apps/api/webview";
   import { ask, open } from "@tauri-apps/plugin-dialog";
   import {
     api,
     errorText,
+    type BulkAction,
+    type BulkResult,
+    type CdlcEntry,
     type CdlcOverview,
     type DownloadReport,
     type ImportResult,
     type Overview,
     type Runner,
+    type SongSource,
   } from "$lib/api";
-  import { formatNumber, t } from "$lib/i18n.svelte";
+  import { formatNumber, locale, t } from "$lib/i18n.svelte";
 
-  let { run, busy, openBrowser }: { ov: Overview; run: Runner; busy: boolean; openBrowser: () => void } = $props();
+  let {
+    run,
+    busy,
+    openBrowser,
+  }: { ov: Overview; run: Runner; busy: boolean; openBrowser: (url?: string) => void } = $props();
+
+  type SortKey = "artist" | "title" | "modified" | "size";
+  type Sort = { key: SortKey; dir: 1 | -1 };
+  const SORT_STORAGE_KEY = "guitarstar.songs.sort";
+  const CF_SONG_URL = "https://ignition4.customsforge.com/cdlc/";
 
   let data = $state<CdlcOverview | null>(null);
   let loadError = $state<string | null>(null);
   let query = $state("");
+  let sources = $state<Record<string, SongSource>>({});
+  let sort = $state<Sort>(loadSort());
+  let duplicatesOnly = $state(false);
+  const selected = new SvelteSet<string>();
+  /** Row of the last click on a selection box, for Shift-click ranges. */
+  let anchor: string | null = null;
   let dragging = $state(false);
   /** Newest first; shows what happened to imports and browser downloads. */
   let activity = $state<{ text: string; ok: boolean }[]>([]);
@@ -27,9 +47,83 @@
     try {
       data = await api.cdlcOverview();
       loadError = null;
+      const present = new Set(data.songs.map((s) => s.file_name));
+      for (const name of [...selected]) if (!present.has(name)) selected.delete(name);
     } catch (e) {
       loadError = errorText(e);
     }
+    try {
+      sources = await api.cdlcSources();
+    } catch {
+      // Only the links to CustomsForge are missing then.
+    }
+  }
+
+  function loadSort(): Sort {
+    try {
+      const saved = JSON.parse(localStorage.getItem(SORT_STORAGE_KEY) ?? "null");
+      if (["artist", "title", "modified", "size"].includes(saved?.key) && (saved.dir === 1 || saved.dir === -1)) return saved;
+    } catch {
+      // Unreadable or no storage: default order.
+    }
+    return { key: "artist", dir: 1 };
+  }
+
+  function sortBy(key: SortKey) {
+    // Newest and largest first are the useful defaults for dates and sizes.
+    sort = sort.key === key ? { key, dir: sort.dir === 1 ? -1 : 1 } : { key, dir: key === "modified" || key === "size" ? -1 : 1 };
+    try {
+      localStorage.setItem(SORT_STORAGE_KEY, JSON.stringify(sort));
+    } catch {
+      // Not persisted; the order still applies for this session.
+    }
+  }
+
+  function select(name: string, on: boolean, shift: boolean) {
+    const names = filtered.map((s) => s.file_name);
+    const from = anchor ? names.indexOf(anchor) : -1;
+    const to = names.indexOf(name);
+    if (shift && from >= 0 && to >= 0) {
+      for (const n of names.slice(Math.min(from, to), Math.max(from, to) + 1)) {
+        if (on) selected.add(n);
+        else selected.delete(n);
+      }
+    } else if (on) selected.add(name);
+    else selected.delete(name);
+    anchor = name;
+  }
+
+  function selectAll(on: boolean) {
+    for (const s of filtered) {
+      if (on) selected.add(s.file_name);
+      else selected.delete(s.file_name);
+    }
+  }
+
+  async function bulk(action: BulkAction) {
+    const names = [...selected];
+    if (!names.length) return;
+    if (
+      action === "delete" &&
+      !(await ask(t("songs.bulkDeleteConfirm", { count: names.length }), { title: t("songs.bulkDeleteTitle"), kind: "warning" }))
+    )
+      return;
+    let result: BulkResult | null = null;
+    const label = action === "delete" ? t("songs.bulkDeleting") : t("songs.bulkWorking");
+    await run(label, async () => {
+      result = await api.cdlcBulk(names, action);
+    });
+    if (result) {
+      const r: BulkResult = result;
+      for (const name of r.done) selected.delete(name);
+      for (const [name, reason] of r.failed) activity.unshift({ text: t("songs.bulkFailed", { name, reason }), ok: false });
+      activity = activity.slice(0, 8);
+    }
+    await reload();
+  }
+
+  function openOnCustomsforge(source: SongSource) {
+    openBrowser(CF_SONG_URL + encodeURIComponent(source.cf_id));
   }
 
   function report(r: ImportResult, source?: string) {
@@ -76,12 +170,42 @@
     if (ok) await run(t("common.installerLoading"), () => api.installCdlcEnabler(), t("common.installerStarted"));
   }
 
+  /** Number of files per song key; more than one means several versions. */
+  let keyCounts = $derived.by(() => {
+    const counts = new Map<string, number>();
+    for (const s of data?.songs ?? []) counts.set(s.song_key, (counts.get(s.song_key) ?? 0) + 1);
+    return counts;
+  });
+  const isDuplicate = (s: CdlcEntry) => (keyCounts.get(s.song_key) ?? 0) > 1;
+  let duplicateCount = $derived(data?.songs.filter(isDuplicate).length ?? 0);
+
+  const text = (v: string | null) => (v ?? "").toLocaleLowerCase();
+  function compare(a: CdlcEntry, b: CdlcEntry): number {
+    switch (sort.key) {
+      case "artist":
+        return text(a.artist).localeCompare(text(b.artist)) || text(a.title).localeCompare(text(b.title));
+      case "title":
+        return text(a.title).localeCompare(text(b.title)) || text(a.artist).localeCompare(text(b.artist));
+      case "modified":
+        return a.modified - b.modified;
+      case "size":
+        return a.size - b.size;
+    }
+  }
+
   let filtered = $derived.by(() => {
     const q = query.trim().toLowerCase();
-    const songs = data?.songs ?? [];
-    return q ? songs.filter((s) => `${s.artist ?? ""} ${s.title} ${s.file_name}`.toLowerCase().includes(q)) : songs;
+    let songs = data?.songs ?? [];
+    if (q) songs = songs.filter((s) => `${s.artist ?? ""} ${s.title} ${s.file_name}`.toLowerCase().includes(q));
+    if (duplicatesOnly) songs = songs.filter(isDuplicate);
+    // Ties keep versions of one song together, oldest version first.
+    return [...songs].sort((a, b) => sort.dir * compare(a, b) || a.file_name.localeCompare(b.file_name));
   });
+  let allShownSelected = $derived(filtered.length > 0 && filtered.every((s) => selected.has(s.file_name)));
   let enabledCount = $derived(data?.songs.filter((s) => s.enabled).length ?? 0);
+
+  const day = (unixSeconds: number) => new Date(unixSeconds * 1000).toLocaleDateString(locale(), { dateStyle: "medium" });
+  const arrow = (key: SortKey) => (sort.key === key ? (sort.dir === 1 ? " ▲" : " ▼") : "");
 
   const mb = (bytes: number) => formatNumber(bytes / 1024 / 1024, { minimumFractionDigits: 1, maximumFractionDigits: 1, useGrouping: false }) + " MB";
 
@@ -127,7 +251,7 @@
   <section class="card">
     <div class="row head">
       <h2>{t("songs.find")}</h2>
-      <button class="primary" onclick={openBrowser}>{t("songs.openCustomsforge")}</button>
+      <button class="primary" onclick={() => openBrowser()}>{t("songs.openCustomsforge")}</button>
       <button disabled={busy} onclick={pickFiles}>{t("songs.pickFiles")}</button>
     </div>
     <p class="muted">{t("songs.findText")}</p>
@@ -147,25 +271,69 @@
       {#if data.songs.length - enabledCount}
         <span class="badge">{t("songs.disabledCount", { count: data.songs.length - enabledCount })}</span>
       {/if}
+      {#if duplicateCount}
+        <span class="badge warn dup" title={t("songs.duplicateHint")}>{t("songs.duplicateCount", { count: duplicateCount })}</span>
+      {/if}
       <input class="search" placeholder={t("songs.search")} bind:value={query} />
     </div>
     {#if data.songs.length === 0}
       <p class="muted">{t("songs.empty")}</p>
     {:else}
+      <div class="row tools">
+        <span class="muted small">
+          {t("songs.shownCount", { shown: filtered.length, total: data.songs.length })}
+        </span>
+        {#if duplicateCount}
+          <label class="small" title={t("songs.duplicateHint")}>
+            <input type="checkbox" bind:checked={duplicatesOnly} />
+            {t("songs.duplicatesOnly")}
+          </label>
+        {/if}
+        {#if selected.size}
+          <span class="selection">
+            <strong class="small">{t("songs.selectedCount", { count: selected.size })}</strong>
+            <button disabled={busy} onclick={() => bulk("enable")}>{t("songs.bulkEnable")}</button>
+            <button disabled={busy} onclick={() => bulk("disable")}>{t("songs.bulkDisable")}</button>
+            <button class="danger" disabled={busy} onclick={() => bulk("delete")}>{t("songs.bulkDelete")}</button>
+            <button class="link" onclick={() => selected.clear()}>{t("songs.clearSelection")}</button>
+          </span>
+        {/if}
+      </div>
       <table>
         <thead>
           <tr>
+            <th class="narrow">
+              <input
+                type="checkbox"
+                title={t("songs.selectAll")}
+                checked={allShownSelected}
+                disabled={!filtered.length}
+                onchange={(e) => selectAll(e.currentTarget.checked)}
+              />
+            </th>
             <th>{t("songs.colActive")}</th>
-            <th>{t("songs.colArtist")}</th>
-            <th>{t("songs.colTitle")}</th>
+            <th><button class="sort" title={t("songs.sortTitle")} onclick={() => sortBy("artist")}>{t("songs.colArtist")}{arrow("artist")}</button></th>
+            <th><button class="sort" title={t("songs.sortTitle")} onclick={() => sortBy("title")}>{t("songs.colTitle")}{arrow("title")}</button></th>
             <th>{t("songs.colVersion")}</th>
-            <th>{t("songs.colSize")}</th>
+            <th>
+              <button class="sort" title={t("songs.dateTitle")} onclick={() => sortBy("modified")}>{t("songs.colDate")}{arrow("modified")}</button>
+            </th>
+            <th><button class="sort" title={t("songs.sortTitle")} onclick={() => sortBy("size")}>{t("songs.colSize")}{arrow("size")}</button></th>
             <th></th>
           </tr>
         </thead>
         <tbody>
           {#each filtered as s (s.file_name)}
-            <tr class:off={!s.enabled}>
+            {@const source = sources[s.file_name]}
+            <tr class:off={!s.enabled} class:picked={selected.has(s.file_name)}>
+              <td class="narrow">
+                <input
+                  type="checkbox"
+                  title={t("songs.colSelect")}
+                  checked={selected.has(s.file_name)}
+                  onclick={(e) => select(s.file_name, e.currentTarget.checked, e.shiftKey)}
+                />
+              </td>
               <td>
                 <input
                   type="checkbox"
@@ -176,9 +344,22 @@
                 />
               </td>
               <td>{s.artist ?? "–"}</td>
-              <td title={s.file_name}>{s.title}</td>
+              <td title={s.file_name}>
+                {s.title}
+                {#if isDuplicate(s)}
+                  <span class="badge warn dup" title={t("songs.duplicateHint")}>{t("songs.duplicate")}</span>
+                {/if}
+                {#if source}
+                  <button
+                    class="link small"
+                    title={t("songs.onCustomsforgeTitle", { date: day(source.downloaded_at) })}
+                    onclick={() => openOnCustomsforge(source)}>{t("songs.onCustomsforge")}</button
+                  >
+                {/if}
+              </td>
               <td class="muted">{s.version ?? ""}</td>
-              <td class="muted">{mb(s.size)}</td>
+              <td class="muted nowrap">{s.modified ? day(s.modified) : ""}</td>
+              <td class="muted nowrap">{mb(s.size)}</td>
               <td class="right">
                 <button class="link" disabled={busy} onclick={() => remove(s.file_name, s.title)}>{t("songs.delete")}</button>
               </td>
@@ -186,6 +367,9 @@
           {/each}
         </tbody>
       </table>
+      {#if !filtered.length}
+        <p class="muted">{t("songs.noMatches")}</p>
+      {/if}
       <p class="muted small">{t("songs.changesHint")}</p>
     {/if}
   </section>
@@ -229,6 +413,41 @@
   }
   tr.off td {
     opacity: 0.55;
+  }
+  tr.picked td {
+    background: color-mix(in srgb, var(--accent) 10%, transparent);
+  }
+  th.narrow,
+  td.narrow {
+    width: 1%;
+  }
+  .nowrap {
+    white-space: nowrap;
+  }
+  button.sort {
+    background: none;
+    border: none;
+    padding: 0;
+    font: inherit;
+    color: inherit;
+    cursor: pointer;
+  }
+  button.sort:hover {
+    color: var(--text);
+  }
+  .tools {
+    margin-top: 10px;
+    gap: 14px;
+  }
+  .selection {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    margin-left: auto;
+  }
+  .badge.dup {
+    cursor: help;
+    margin-left: 6px;
   }
   .right {
     text-align: right;

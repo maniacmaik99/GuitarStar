@@ -15,6 +15,7 @@ use guitarstar_core::error::{AppError, Result};
 use guitarstar_core::game::{self, GameInfo, GameSettings};
 use guitarstar_core::snapshot::{SnapshotStore, SnapshotWriter};
 use guitarstar_core::state::{AppState, InstalledComponent};
+use guitarstar_core::sources::{self, PendingDownload, Sources};
 use guitarstar_core::{cdlc, display, linux, reqwest, rsmods, steam};
 
 const RS_ASIO_INI: &str = "RS_ASIO.ini";
@@ -483,9 +484,74 @@ pub async fn cdlc_set_enabled(ctx: State<'_, Ctx>, name: String, enabled: bool) 
 }
 
 #[tauri::command]
-pub async fn cdlc_delete(ctx: State<'_, Ctx>, name: String) -> Result<()> {
+pub async fn cdlc_delete(ctx: State<'_, Ctx>, cf: State<'_, CfDownloads>, name: String) -> Result<()> {
     let _op = ctx.op.lock().await;
-    cdlc::delete(&ctx.game_dir()?, &ctx.data_dir, &name)
+    cdlc::delete(&ctx.game_dir()?, &ctx.data_dir, &name)?;
+    cf.forget(&ctx.data_dir, &[name]);
+    Ok(())
+}
+
+/// Enables, disables or deletes several songs at once.
+#[tauri::command]
+pub async fn cdlc_bulk(
+    ctx: State<'_, Ctx>,
+    cf: State<'_, CfDownloads>,
+    names: Vec<String>,
+    action: cdlc::BulkAction,
+) -> Result<cdlc::BulkResult> {
+    let _op = ctx.op.lock().await;
+    let result = cdlc::bulk(&ctx.game_dir()?, &ctx.data_dir, &names, action);
+    if action == cdlc::BulkAction::Delete {
+        cf.forget(&ctx.data_dir, &result.done);
+    }
+    Ok(result)
+}
+
+/// Which CustomsForge song each downloaded file came from, by file name.
+#[tauri::command]
+pub fn cdlc_sources(ctx: State<'_, Ctx>, cf: State<'_, CfDownloads>) -> Sources {
+    let _guard = cf.lock_sources();
+    Sources::load(&ctx.data_dir)
+}
+
+/// The CustomsForge song of the most recent download click, and a lock for
+/// `cdlc-sources.json` (downloads finish outside of `Ctx::op`).
+#[derive(Default)]
+pub struct CfDownloads {
+    pending: Mutex<Option<PendingDownload>>,
+    sources: Mutex<()>,
+}
+
+impl CfDownloads {
+    fn lock_sources(&self) -> MutexGuard<'_, ()> {
+        self.sources.lock().unwrap_or_else(|e| e.into_inner())
+    }
+
+    fn note_request(&self, url: &reqwest::Url) {
+        if let Some(cf_id) = sources::download_cf_id(url) {
+            eprintln!("[customsforge] pending download of song {cf_id}");
+            *self.pending.lock().unwrap_or_else(|e| e.into_inner()) =
+                Some(PendingDownload { cf_id, requested_at: now() });
+        }
+    }
+
+    /// Attributes freshly installed files to the pending CustomsForge song.
+    fn record(&self, data_dir: &Path, imported: &[String], host: Option<&str>) {
+        let _guard = self.lock_sources();
+        let mut pending = self.pending.lock().unwrap_or_else(|e| e.into_inner());
+        match sources::record_download(data_dir, imported, pending.as_ref(), now(), host) {
+            Ok(true) => *pending = None,
+            Ok(false) => {}
+            Err(e) => eprintln!("[customsforge] could not store song source: {e}"),
+        }
+    }
+
+    fn forget(&self, data_dir: &Path, names: &[String]) {
+        let _guard = self.lock_sources();
+        if let Err(e) = sources::forget(data_dir, names) {
+            eprintln!("[customsforge] could not update song sources: {e}");
+        }
+    }
 }
 
 const ENABLER_URL: &str = "https://ignition4.customsforge.com/tools/download/cdlc-enabler";
@@ -623,7 +689,7 @@ fn handle_download(webview: tauri::Webview, event: tauri::webview::DownloadEvent
             let _ = app.emit_to("main", "cdlc-download-started", name.to_string_lossy().into_owned());
             *destination = dir.join(name);
         }
-        DownloadEvent::Finished { path, success, .. } => {
+        DownloadEvent::Finished { url, path, success } => {
             let Some(path) = path else { return true };
             let file_name = path.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default();
             let report = if !success {
@@ -633,6 +699,7 @@ fn handle_download(webview: tauri::Webview, event: tauri::webview::DownloadEvent
                 match ctx.game_dir().and_then(|g| cdlc::import(&g, &ctx.data_dir, &[path.clone()])) {
                     Ok(result) => {
                         let _ = fs::remove_file(&path);
+                        app.state::<CfDownloads>().record(&ctx.data_dir, &result.imported, url.host_str());
                         DownloadReport { file_name, result: Some(result), error: None }
                     }
                     Err(e) => DownloadReport { file_name, result: None, error: Some(e.to_string()) },
@@ -675,6 +742,7 @@ pub async fn open_customsforge(app: tauri::AppHandle, x: f64, y: f64, width: f64
     let mut builder = WebviewBuilder::new(CUSTOMSFORGE_LABEL, WebviewUrl::External(url))
         .on_download(handle_download)
         .on_navigation(move |url| {
+            drive_app.state::<CfDownloads>().note_request(url);
             let Some(direct) = cdlc::drive_direct_download(url) else { return true };
             eprintln!("[customsforge] google drive -> {direct}");
             if let Some(view) = customsforge_view(&drive_app) {
@@ -696,6 +764,7 @@ pub async fn open_customsforge(app: tauri::AppHandle, x: f64, y: f64, width: f64
         })
         .on_new_window(move |url, _features| {
             eprintln!("[customsforge] new window {url}");
+            nav_app.state::<CfDownloads>().note_request(&url);
             if matches!(url.scheme(), "http" | "https") {
                 if let Some(view) = customsforge_view(&nav_app) {
                     tauri::async_runtime::spawn(async move {
@@ -747,6 +816,18 @@ pub fn customsforge_navigate(app: tauri::AppHandle, action: String) -> Result<()
         view.eval(script).map_err(|e| AppError::msg(e.to_string()))?;
     }
     Ok(())
+}
+
+/// Opens a page of CustomsForge's song site (e.g. a song's page) in the
+/// embedded view; other addresses are refused.
+#[tauri::command]
+pub fn customsforge_open_url(app: tauri::AppHandle, url: String) -> Result<()> {
+    let url: reqwest::Url = url.parse().map_err(|_| AppError::msg("Ungültige Adresse."))?;
+    if !sources::is_customsforge_url(&url) {
+        return Err(AppError::msg("Nur Seiten von ignition4.customsforge.com können geöffnet werden."));
+    }
+    let view = customsforge_view(&app).ok_or_else(|| AppError::msg("CustomsForge ist nicht geöffnet."))?;
+    view.navigate(url).map_err(|e| AppError::msg(e.to_string()))
 }
 
 #[derive(Serialize)]

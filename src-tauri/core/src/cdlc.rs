@@ -9,7 +9,7 @@ use std::io::{Cursor, Read};
 use std::path::{Path, PathBuf};
 use std::time::UNIX_EPOCH;
 
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
 use crate::error::{AppError, Result};
 
@@ -35,6 +35,33 @@ pub struct CdlcEntry {
     pub enabled: bool,
     /// Unix seconds of the last change to the file.
     pub modified: u64,
+    /// Normalised artist + title; songs sharing a key are probably versions
+    /// of the same song (see [`song_key`]).
+    pub song_key: String,
+}
+
+/// Lowercase letters and digits of `s`, split into words.
+fn words(s: &str) -> Vec<String> {
+    s.split(|c: char| !c.is_alphanumeric())
+        .filter(|w| !w.is_empty())
+        .map(|w| w.to_lowercase())
+        .collect()
+}
+
+/// Heuristic key for finding several versions of one song: artist and title
+/// without case, spaces and punctuation, a leading "The" of the artist and a
+/// trailing "DD" (dynamic difficulty) marker of the title. Only the file name
+/// is used; the songs' own metadata stays untouched.
+pub fn song_key(artist: Option<&str>, title: &str) -> String {
+    let mut a = words(artist.unwrap_or_default());
+    if a.len() > 1 && a[0] == "the" {
+        a.remove(0);
+    }
+    let mut t = words(title);
+    while t.len() > 1 && matches!(t.last().map(String::as_str), Some("dd" | "ddc" | "nodd")) {
+        t.pop();
+    }
+    format!("{}|{}", a.concat(), t.concat())
 }
 
 /// Best-effort artist/title/version from the usual CustomsForge naming,
@@ -81,6 +108,7 @@ fn entries_in(dir: &Path, enabled: bool, out: &mut Vec<CdlcEntry>) -> Result<()>
         let meta = entry.metadata()?;
         let (artist, title, version) = parse_name(&name);
         out.push(CdlcEntry {
+            song_key: song_key(artist.as_deref(), &title),
             artist,
             title,
             version,
@@ -226,6 +254,46 @@ pub fn delete(game_dir: &Path, data_dir: &Path, name: &str) -> Result<()> {
     Ok(())
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum BulkAction {
+    Enable,
+    Disable,
+    Delete,
+}
+
+#[derive(Debug, Clone, Default, Serialize)]
+pub struct BulkResult {
+    pub done: Vec<String>,
+    /// File name and reason.
+    pub failed: Vec<(String, String)>,
+}
+
+/// Applies `action` to every song; one failing song does not stop the others.
+/// Songs that already are in the wanted state count as done.
+pub fn bulk(game_dir: &Path, data_dir: &Path, names: &[String], action: BulkAction) -> BulkResult {
+    let mut result = BulkResult::default();
+    for name in names {
+        let r = match action {
+            BulkAction::Delete => delete(game_dir, data_dir, name),
+            BulkAction::Enable | BulkAction::Disable => {
+                let enabled = action == BulkAction::Enable;
+                let already = if enabled { enabled_dir(game_dir) } else { disabled_dir(data_dir) };
+                if checked_name(name).is_ok() && already.join(name).is_file() {
+                    Ok(())
+                } else {
+                    set_enabled(game_dir, data_dir, name, enabled)
+                }
+            }
+        };
+        match r {
+            Ok(()) => result.done.push(name.clone()),
+            Err(e) => result.failed.push((name.clone(), e.to_string())),
+        }
+    }
+    result
+}
+
 /// Google Drive links on CustomsForge point to the file's preview page, which
 /// does not work inside the embedded view. The direct download address starts
 /// the download right away (or shows Google's "can't scan for viruses" page
@@ -275,6 +343,25 @@ mod tests {
             (Some("Metallica".into()), "Master of Puppets".into(), Some("1.2".into()))
         );
         assert_eq!(parse_name("song_p.psarc"), (None, "song".into(), None));
+    }
+
+    #[test]
+    fn song_keys_ignore_case_spacing_and_punctuation() {
+        let key = |f: &str| {
+            let (a, t, _) = parse_name(f);
+            song_key(a.as_deref(), &t)
+        };
+        assert_eq!(key("Foo-Fighters_Everlong_v1_p.psarc"), key("Foo-Fighters_Everlong_v2_DD_p.psarc"));
+        assert_eq!(key("foo-fighters_EVERLONG_p.psarc"), key("Foo-Fighters_Everlong_v3_p.psarc"));
+        assert_eq!(key("Foo-Fighters_Everlong_DD_p.psarc"), key("Foo-Fighters_Everlong_v2_p.psarc"));
+        assert_eq!(song_key(Some("The Beatles"), "Help!"), song_key(Some("Beatles"), "help"));
+        assert_eq!(song_key(Some("AC/DC"), "T.N.T."), song_key(Some("ACDC"), "TNT"));
+        assert_eq!(song_key(Some("Motörhead"), "Ace of Spades"), song_key(Some("MOTÖRHEAD"), "Ace-of-Spades"));
+        assert_ne!(song_key(Some("Foo Fighters"), "Everlong"), song_key(Some("Foo Fighters"), "Everlong Acoustic"));
+        assert_ne!(song_key(Some("A"), "Song"), song_key(Some("B"), "Song"));
+        // A title that only consists of "DD" stays as it is.
+        assert_eq!(song_key(None, "DD"), "|dd");
+        assert_eq!(song_key(Some("The"), "x"), "the|x");
     }
 
     #[test]
@@ -335,6 +422,21 @@ mod tests {
 
         delete(&game, &data, "Band_Song_v1_p.psarc").unwrap();
         assert_eq!(list(&game, &data).unwrap().len(), 1);
+        assert!(game.join("dlc").join("official_p.psarc").exists());
+
+        let names = |v: &[&str]| v.iter().map(|s| s.to_string()).collect::<Vec<_>>();
+        let r = bulk(&game, &data, &names(&["Other_Tune_p.psarc", "Missing_p.psarc", "../x_p.psarc"]), BulkAction::Disable);
+        assert_eq!(r.done, vec!["Other_Tune_p.psarc"]);
+        assert_eq!(r.failed.len(), 2);
+        assert!(disabled_dir(&data).join("Other_Tune_p.psarc").is_file());
+        // Already disabled counts as done.
+        assert!(bulk(&game, &data, &names(&["Other_Tune_p.psarc"]), BulkAction::Disable).failed.is_empty());
+        let r = bulk(&game, &data, &names(&["Other_Tune_p.psarc"]), BulkAction::Enable);
+        assert_eq!(r.done.len(), 1);
+        assert!(enabled_dir(&game).join("Other_Tune_p.psarc").is_file());
+        let r = bulk(&game, &data, &names(&["Other_Tune_p.psarc"]), BulkAction::Delete);
+        assert_eq!(r.done.len(), 1);
+        assert!(list(&game, &data).unwrap().is_empty());
         assert!(game.join("dlc").join("official_p.psarc").exists());
         fs::remove_dir_all(&base).unwrap();
     }
