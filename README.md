@@ -4,7 +4,7 @@
 
 Rocksmith 2014 läuft auf aktueller Hardware oft nur mit Bastelei: Audio-Interfaces werden nicht unterstützt, das Rocksmith-Kabel hat spürbare Latenz, und mit Windows-Skalierung passt das Bild nicht auf den Monitor. GuitarStar richtet das mit ein paar Klicks ein – und kann jede Änderung wieder zurücknehmen.
 
-> *English:* GuitarStar is a desktop app that sets up Rocksmith 2014 Remastered for modern hardware: audio interfaces via RS_ASIO, a display scaling fix, custom songs (CDLC) with a built-in CustomsForge browser, optional RSMods with Fast Load, and automatic app updates. Every change to the game folder is backed up and can be undone. The app is available in English and German (it follows your system language). Windows is the main platform; Linux/Steam Deck builds are a preview.
+> *English:* GuitarStar is a desktop app that sets up Rocksmith 2014 Remastered for modern hardware: audio interfaces via RS_ASIO, a display scaling fix, custom songs (CDLC) with a built-in CustomsForge browser, optional RSMods with Fast Load, and automatic app updates. Every change to the game folder is backed up and can be undone. The app is available in 11 languages: English, German, Chinese (Simplified), Hindi, Spanish, French, Arabic, Bengali, Portuguese, Russian and Urdu (it follows your system language). Windows is the main platform; Linux/Steam Deck builds are a preview.
 
 ## Funktionen
 
@@ -23,7 +23,7 @@ Rocksmith 2014 läuft auf aktueller Hardware oft nur mit Bastelei: Audio-Interfa
 - **Verlauf:** Vor jeder Änderung werden die betroffenen Dateien gesichert. Jede Änderung lässt sich zurücknehmen, auch komplett bis zum Originalzustand.
 - **Spielstand-Sicherung:** Dein Rocksmith-Profil (Steam-Ordner `userdata/…/221680/remote`) wird auf Knopfdruck, einmal täglich und vor riskanten Aktionen (RSMods, CDLC-Enabler, Originalzustand) gesichert und lässt sich wiederherstellen.
 - **Automatische Updates:** GuitarStar meldet neue Versionen beim Start und aktualisiert sich per Klick; unter „Einstellungen“ stehen die installierte Version und ein Knopf zum manuellen Prüfen. Updates sind signiert.
-- **Deutsch und Englisch:** Die Oberfläche folgt der Systemsprache (Deutsch bei deutschem System, sonst Englisch) und lässt sich in den Einstellungen umschalten.
+- **11 Sprachen:** Deutsch, Englisch, Chinesisch (vereinfacht), Hindi, Spanisch, Französisch, Arabisch, Bengalisch, Portugiesisch, Russisch und Urdu (Arabisch und Urdu von rechts nach links). Die App folgt der Systemsprache (sonst Englisch) und lässt sich in den Einstellungen umschalten; auch Fehlermeldungen und der Verlauf erscheinen in der gewählten Sprache.
 
 ### Geplant
 
@@ -96,7 +96,7 @@ Einmalig nötig: der Signaturschlüssel als GitHub-Secret (`scripts/set-release-
 
 | Ordner | Inhalt |
 |---|---|
-| `src/` | Oberfläche (SvelteKit, TypeScript); Texte auf Deutsch und Englisch in `src/lib/i18n.svelte.ts` |
+| `src/` | Oberfläche (SvelteKit, TypeScript); Texte pro Sprache in `src/lib/i18n/<sprache>.ts` (Deutsch ist die Referenz) |
 | `src-tauri/src/` | Tauri-App: Befehle zwischen Oberfläche und Kernlogik |
 | `src-tauri/core/` | Kernlogik ohne UI: Spielordner, INI-Dateien, Audio-Profile, Komponenten, Sicherungen |
 | `src-tauri/core/profiles/` | Geräteprofile (`devices.json`) und RS_ASIO-Vorlage |
