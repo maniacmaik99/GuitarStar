@@ -53,7 +53,8 @@ fn builtin_profiles(lang: Lang) -> Result<Vec<DeviceProfile>> {
     let mut profiles: Vec<DeviceProfile> = serde_json::from_str(BUILTIN_PROFILES)?;
     for p in &mut profiles {
         let (name_en, notes_en) = (p.name_en.take(), p.notes_en.take());
-        if lang == Lang::En {
+        // Profile texts exist in German and English; every other language uses English.
+        if lang != Lang::De {
             p.name = name_en.unwrap_or_else(|| p.name.clone());
             p.notes = notes_en.or(p.notes.take());
         }

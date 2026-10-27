@@ -203,13 +203,13 @@ pub fn overview(ctx: State<'_, Ctx>) -> Result<Overview> {
         .snapshots()
         .list()?
         .into_iter()
-        .map(|s| SnapshotSummary {
-            file_count: s.files.len(),
-            id: s.id,
-            created: s.created,
-            label: s.label,
-            label_key: s.label_key,
-            label_args: s.label_args,
+        .map(|s| {
+            // Entries from before labels had keys are plain German text.
+            let (label_key, label_args) = match s.label_key {
+                Some(key) => (Some(key), s.label_args),
+                None => i18n::legacy_label(&s.label).map_or((None, None), |l| (l.key(), l.args())),
+            };
+            SnapshotSummary { file_count: s.files.len(), id: s.id, created: s.created, label: s.label, label_key, label_args }
         })
         .collect();
     Ok(Overview {

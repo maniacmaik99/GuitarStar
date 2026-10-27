@@ -1,7 +1,7 @@
 <script lang="ts">
   import { openUrl } from "@tauri-apps/plugin-opener";
   import { api, type Overview, type Runner } from "$lib/api";
-  import { getLang, setLang, t, type Lang } from "$lib/i18n.svelte";
+  import { getLang, LANGUAGES, setLang, t, type Lang } from "$lib/i18n.svelte";
   import { checkForUpdate, installUpdate, updater } from "$lib/updater.svelte";
 
   let { ov, run, busy }: { ov: Overview; run: Runner; busy: boolean } = $props();
@@ -48,8 +48,9 @@
 <section class="card">
   <h2>{t("settings.language")}</h2>
   <select value={getLang()} onchange={(e) => setLang(e.currentTarget.value as Lang)}>
-    <option value="de">Deutsch</option>
-    <option value="en">English</option>
+    {#each LANGUAGES as l (l.code)}
+      <option value={l.code}>{l.name}</option>
+    {/each}
   </select>
 </section>
 

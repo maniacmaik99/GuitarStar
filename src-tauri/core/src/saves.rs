@@ -151,7 +151,15 @@ pub fn find_save_folders() -> Vec<SaveFolder> {
 }
 
 fn read_manifest(dir: &Path) -> Result<BackupInfo> {
-    Ok(serde_json::from_str(&fs::read_to_string(dir.join(MANIFEST))?)?)
+    let mut info: BackupInfo = serde_json::from_str(&fs::read_to_string(dir.join(MANIFEST))?)?;
+    // Backups from before labels had keys carry plain German text.
+    if info.label_key.is_none() {
+        if let Some(label) = crate::i18n::legacy_label(&info.label) {
+            info.label_key = label.key();
+            info.label_args = label.args();
+        }
+    }
+    Ok(info)
 }
 
 /// Copies every file of `remote_dir` into a new backup below `backups_root`.
