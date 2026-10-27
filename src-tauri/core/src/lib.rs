@@ -12,6 +12,7 @@ pub mod linux;
 pub mod rsmods;
 pub mod saves;
 pub mod snapshot;
+pub mod sources;
 pub mod state;
 pub mod steam;
 

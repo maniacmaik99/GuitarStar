@@ -4,7 +4,7 @@
   import { api, errorText, type DownloadReport } from "$lib/api";
   import { t } from "$lib/i18n.svelte";
 
-  let { onclose }: { onclose: () => void } = $props();
+  let { onclose, startUrl }: { onclose: () => void; startUrl?: string } = $props();
 
   let area: HTMLDivElement;
   let status = $state<{ text: string; kind: "busy" | "ok" | "bad" } | null>(null);
@@ -23,7 +23,10 @@
   }
 
   onMount(() => {
-    api.openCustomsforge(bounds()).catch((e) => (error = errorText(e)));
+    api
+      .openCustomsforge(bounds())
+      .then(() => (startUrl ? api.customsforgeOpenUrl(startUrl) : undefined))
+      .catch((e) => (error = errorText(e)));
     const sync = () => api.customsforgeBounds(bounds());
     const observer = new ResizeObserver(sync);
     observer.observe(area);

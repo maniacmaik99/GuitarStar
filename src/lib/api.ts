@@ -137,6 +137,21 @@ export interface CdlcEntry {
   size: number;
   enabled: boolean;
   modified: number;
+  /** Normalised artist + title; equal keys mean probably several versions of one song. */
+  song_key: string;
+}
+
+export interface SongSource {
+  cf_id: string;
+  downloaded_at: number;
+  source_url_host: string | null;
+}
+
+export type BulkAction = "enable" | "disable" | "delete";
+
+export interface BulkResult {
+  done: string[];
+  failed: [string, string][];
 }
 
 export interface CdlcOverview {
@@ -198,6 +213,9 @@ export const api = {
   cdlcImport: (paths: string[]) => invoke<ImportResult>("cdlc_import", { paths }),
   cdlcSetEnabled: (name: string, enabled: boolean) => invoke<void>("cdlc_set_enabled", { name, enabled }),
   cdlcDelete: (name: string) => invoke<void>("cdlc_delete", { name }),
+  cdlcBulk: (names: string[], action: BulkAction) => invoke<BulkResult>("cdlc_bulk", { names, action }),
+  cdlcSources: () => invoke<Record<string, SongSource>>("cdlc_sources"),
+  customsforgeOpenUrl: (url: string) => invoke<void>("customsforge_open_url", { url }),
   installCdlcEnabler: () => invoke<void>("install_cdlc_enabler"),
   openCustomsforge: (b: Bounds) => invoke<void>("open_customsforge", { ...b }),
   customsforgeBounds: (b: Bounds) => invoke<void>("customsforge_bounds", { ...b }),
