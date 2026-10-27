@@ -11,6 +11,7 @@ use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 
 use crate::error::{AppError, Result};
+use crate::{i18n, tr};
 
 pub enum Source {
     /// Release archives from a GitHub repository.
@@ -22,10 +23,9 @@ pub enum Source {
     },
 }
 
+/// Name and description are in `i18n` under `component.<id>.name` / `.description`.
 pub struct ComponentDef {
     pub id: &'static str,
-    pub name: &'static str,
-    pub description: &'static str,
     pub source: Source,
     /// Files copied into the game folder.
     pub files: &'static [&'static str],
@@ -34,6 +34,16 @@ pub struct ComponentDef {
 }
 
 impl ComponentDef {
+    /// Display name in the current language.
+    pub fn name(&self) -> String {
+        i18n::component_name(self.id)
+    }
+
+    /// Description in the current language.
+    pub fn description(&self) -> String {
+        i18n::tr(&format!("component.{}.description", self.id))
+    }
+
     pub fn repo(&self) -> Option<&'static str> {
         match self.source {
             Source::GitHub { repo, .. } => Some(repo),
@@ -47,16 +57,12 @@ pub const DPI_FIX_ID: &str = "dpi_fix";
 pub const COMPONENTS: &[ComponentDef] = &[
     ComponentDef {
         id: "rs_asio",
-        name: "RS_ASIO",
-        description: "Leitet Ein- und Ausgabe des Spiels auf ein Audio-Interface (ASIO) um: niedrige Latenz, kein Rocksmith-Kabel nötig.",
         source: Source::GitHub { repo: "mdias/rs_asio", asset_suffix: ".zip" },
         files: &["avrt.dll", "RS_ASIO.dll"],
         extras: &["RS_ASIO.ini"],
     },
     ComponentDef {
         id: DPI_FIX_ID,
-        name: "Skalierungs-Fix",
-        description: "Eigene dinput8.dll von GuitarStar: Rocksmith übernimmt die Windows-Skalierung selbst, damit das Bild auch im (exklusiven) Vollbild genau auf den Monitor passt.",
         source: Source::Bundled {
             version: "1.2.0",
             files: &[("dinput8.dll", include_bytes!("../assets/dinput8.dll"))],
@@ -70,7 +76,7 @@ pub fn find(id: &str) -> Result<&'static ComponentDef> {
     COMPONENTS
         .iter()
         .find(|c| c.id == id)
-        .ok_or_else(|| AppError::msg(format!("Unbekannte Komponente: {id}")))
+        .ok_or_else(|| AppError::msg(tr!("components.unknown", id = id)))
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -240,10 +246,7 @@ pub async fn download_verified(http: &reqwest::Client, rel: &ReleaseInfo) -> Res
     let sha256 = hex::encode(Sha256::digest(&bytes));
     if let Some(expected) = rel.digest.as_deref().and_then(|d| d.strip_prefix("sha256:")) {
         if !expected.eq_ignore_ascii_case(&sha256) {
-            return Err(AppError::msg(format!(
-                "Die Prüfsumme von {} stimmt nicht mit GitHub überein. Download abgebrochen.",
-                rel.asset_name
-            )));
+            return Err(AppError::msg(tr!("components.checksumMismatch", file = rel.asset_name)));
         }
     }
     Ok(bytes.to_vec())
@@ -283,9 +286,11 @@ pub async fn download(
     }
     if let Some(missing) = def.files.iter().find(|f| !tmp_dir.join(f).is_file()) {
         let _ = fs::remove_dir_all(&tmp_dir);
-        return Err(AppError::msg(format!(
-            "{} {} enthält die Datei {missing} nicht. Diese Version wird nicht unterstützt.",
-            def.name, rel.version
+        return Err(AppError::msg(tr!(
+            "components.fileMissing",
+            name = def.name(),
+            version = rel.version,
+            file = missing
         )));
     }
 

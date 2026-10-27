@@ -1,15 +1,19 @@
 use serde::{Serialize, Serializer};
 
-/// Errors are shown to the user as-is, so messages are German.
+use crate::tr;
+
+/// Errors are shown to the user as-is, in the language of the UI (see `i18n`).
+/// `Msg` texts are translated when they are created; the prefixes of the
+/// library errors when they are displayed, which happens right away.
 #[derive(Debug, thiserror::Error)]
 pub enum AppError {
-    #[error("Datei- oder Ordnerfehler: {0}")]
+    #[error("{}", tr!("error.io", error = .0))]
     Io(#[from] std::io::Error),
-    #[error("Netzwerkfehler: {0}")]
+    #[error("{}", tr!("error.http", error = .0))]
     Http(#[from] reqwest::Error),
-    #[error("Ungültige Daten: {0}")]
+    #[error("{}", tr!("error.json", error = .0))]
     Json(#[from] serde_json::Error),
-    #[error("Archivfehler: {0}")]
+    #[error("{}", tr!("error.zip", error = .0))]
     Zip(#[from] zip::result::ZipError),
     #[error("{0}")]
     Msg(String),

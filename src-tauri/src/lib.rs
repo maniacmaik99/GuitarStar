@@ -16,6 +16,7 @@ pub fn run() {
         })
         .invoke_handler(tauri::generate_handler![
             commands::overview,
+            commands::set_language,
             commands::detect_games,
             commands::set_game_dir,
             commands::save_game_settings,

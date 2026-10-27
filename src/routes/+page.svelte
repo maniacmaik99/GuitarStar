@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { onMount } from "svelte";
+  import { onMount, untrack } from "svelte";
   import { open } from "@tauri-apps/plugin-dialog";
   import { api, errorText, type Overview } from "$lib/api";
   import GameTab from "$lib/GameTab.svelte";
@@ -10,7 +10,7 @@
   import SettingsTab from "$lib/SettingsTab.svelte";
   import UpdateBanner from "$lib/UpdateBanner.svelte";
   import HistoryTab from "$lib/HistoryTab.svelte";
-  import { t, type MessageKey } from "$lib/i18n.svelte";
+  import { getLang, languageSynced, t, type MessageKey } from "$lib/i18n.svelte";
   import { saves } from "$lib/saves";
 
   type Tab = "game" | "audio" | "songs" | "components" | "history" | "settings";
@@ -37,6 +37,14 @@
     ov = await api.overview();
   }
 
+  // Texts from the backend (component descriptions, folder problems) follow the language.
+  $effect(() => {
+    getLang();
+    untrack(() => {
+      if (ov) languageSynced().then(refresh).catch(() => {});
+    });
+  });
+
   /** Runs an action with a busy indicator; returns false when it failed. */
   async function run(label: string, action: () => Promise<unknown>, done?: string): Promise<boolean> {
     busy = label;
@@ -62,6 +70,7 @@
 
   onMount(async () => {
     try {
+      await languageSynced();
       await refresh();
       if (!ov?.state.game_dir) detected = await api.detectGames();
     } catch (e) {

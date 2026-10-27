@@ -7,6 +7,7 @@ use std::path::Path;
 use serde::{Deserialize, Serialize};
 
 use crate::error::Result;
+use crate::i18n::{self, Lang};
 use crate::ini::IniDoc;
 
 /// Template shipped with RS_ASIO (MIT), used when the release archive has none.
@@ -34,6 +35,12 @@ pub struct DeviceProfile {
     pub enable_ref_count_hack: Option<bool>,
     #[serde(default)]
     pub notes: Option<String>,
+    /// English name and notes of a bundled profile; `list_profiles` puts them
+    /// into `name`/`notes` when the UI is in English.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub name_en: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub notes_en: Option<String>,
     #[serde(default)]
     pub source: Option<String>,
     /// Set for profiles the user created, false for the bundled ones.
@@ -41,9 +48,22 @@ pub struct DeviceProfile {
     pub custom: bool,
 }
 
-/// Lists bundled profiles followed by the user's own from `user_dir`.
-pub fn list_profiles(user_dir: &Path) -> Result<Vec<DeviceProfile>> {
+/// Bundled profiles with name and notes in `lang`.
+fn builtin_profiles(lang: Lang) -> Result<Vec<DeviceProfile>> {
     let mut profiles: Vec<DeviceProfile> = serde_json::from_str(BUILTIN_PROFILES)?;
+    for p in &mut profiles {
+        let (name_en, notes_en) = (p.name_en.take(), p.notes_en.take());
+        if lang == Lang::En {
+            p.name = name_en.unwrap_or_else(|| p.name.clone());
+            p.notes = notes_en.or(p.notes.take());
+        }
+    }
+    Ok(profiles)
+}
+
+/// Lists bundled profiles (in the current language) followed by the user's own from `user_dir`.
+pub fn list_profiles(user_dir: &Path) -> Result<Vec<DeviceProfile>> {
+    let mut profiles = builtin_profiles(i18n::lang())?;
     if user_dir.is_dir() {
         for entry in fs::read_dir(user_dir)? {
             let path = entry?.path();
@@ -161,7 +181,7 @@ pub fn default_output() -> Option<OutputDevice> {
         .filter_map(|(_, value)| String::from_reg_value(&value).ok())
         .any(|s| s.contains("BTHENUM") || s.contains("BTHLE"));
     Some(OutputDevice {
-        name: text("{a45c254e-df1c-4efd-8020-67d146a850e0},2").unwrap_or_else(|| "Unbekanntes Gerät".into()),
+        name: text("{a45c254e-df1c-4efd-8020-67d146a850e0},2").unwrap_or_else(|| crate::tr!("audio.unknownDevice")),
         device: text("{b3f8fa53-0004-438e-9003-51a46e139bfc},6"),
         bluetooth,
     })
@@ -239,6 +259,21 @@ pub fn render_rs_asio_ini(template: &str, cfg: &AudioConfig) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn builtin_profiles_follow_the_language() {
+        let find = |lang| builtin_profiles(lang).unwrap().into_iter().find(|p| p.id == "asus-strix-soar").unwrap();
+        let (de, en) = (find(Lang::De), find(Lang::En));
+        assert_eq!(de.name, "Asus Strix Soar (Soundkarte)");
+        assert!(de.notes.unwrap().starts_with("Nur Ausgabe"));
+        assert_eq!(en.name, "Asus Strix Soar (sound card)");
+        assert!(en.notes.unwrap().starts_with("Output only"));
+        assert!(en.name_en.is_none() && en.notes_en.is_none());
+        // Every German note has an English one.
+        for p in serde_json::from_str::<Vec<DeviceProfile>>(BUILTIN_PROFILES).unwrap() {
+            assert_eq!(p.notes.is_some(), p.notes_en.is_some(), "{}", p.id);
+        }
+    }
 
     fn scarlett(mode: OutputMode) -> AudioConfig {
         AudioConfig {

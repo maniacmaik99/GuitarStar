@@ -12,6 +12,7 @@ use std::time::UNIX_EPOCH;
 use serde::{Deserialize, Serialize};
 
 use crate::error::{AppError, Result};
+use crate::tr;
 
 pub const CDLC_SUBDIR: &str = "GuitarStar";
 const PC_SUFFIX: &str = "_p.psarc";
@@ -143,7 +144,7 @@ fn checked_name(name: &str) -> Result<&str> {
     if ok {
         Ok(name)
     } else {
-        Err(AppError::msg(format!("Ungültiger Songname: {name}")))
+        Err(AppError::msg(tr!("cdlc.invalidName", name = name)))
     }
 }
 
@@ -171,12 +172,12 @@ fn store(game_dir: &Path, data_dir: &Path, name: &str, bytes: &[u8], result: &mu
     Ok(())
 }
 
-fn skip_reason(name: &str) -> Option<&'static str> {
+fn skip_reason(name: &str) -> Option<String> {
     let lower = name.to_lowercase();
     if lower.ends_with(MAC_SUFFIX) {
-        Some("Mac-Version; für Windows wird die Datei mit _p.psarc gebraucht")
+        Some(tr!("cdlc.macVersion"))
     } else if !lower.ends_with(PC_SUFFIX) {
-        Some("keine Rocksmith-Songdatei (_p.psarc)")
+        Some(tr!("cdlc.notASong"))
     } else {
         None
     }
@@ -192,7 +193,7 @@ pub fn import(game_dir: &Path, data_dir: &Path, paths: &[PathBuf]) -> Result<Imp
             continue;
         }
         match skip_reason(&name) {
-            Some(reason) => result.skipped.push((name, reason.into())),
+            Some(reason) => result.skipped.push((name, reason)),
             None => store(game_dir, data_dir, &name, &fs::read(path)?, &mut result)?,
         }
     }
@@ -220,7 +221,7 @@ fn import_zip(game_dir: &Path, data_dir: &Path, zip_name: &str, bytes: &[u8], re
         store(game_dir, data_dir, &name, &buf, result)?;
     }
     if !found {
-        result.skipped.push((zip_name.to_string(), "Archiv enthält keine Windows-Songdatei (_p.psarc)".into()));
+        result.skipped.push((zip_name.to_string(), tr!("cdlc.zipWithoutSong")));
     }
     Ok(())
 }
@@ -234,7 +235,7 @@ pub fn set_enabled(game_dir: &Path, data_dir: &Path, name: &str, enabled: bool) 
     };
     let src = from.join(name);
     if !src.is_file() {
-        return Err(AppError::msg(format!("{name} wurde nicht gefunden.")));
+        return Err(AppError::msg(tr!("cdlc.notFound", name = name)));
     }
     fs::create_dir_all(&to)?;
     // Game folder and app data can be on different drives, so copy instead of rename.

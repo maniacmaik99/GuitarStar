@@ -2,7 +2,7 @@
   import { onMount } from "svelte";
   import { ask } from "@tauri-apps/plugin-dialog";
   import { errorText, formatDate, type Runner } from "$lib/api";
-  import { formatNumber, t } from "$lib/i18n.svelte";
+  import { formatNumber, storedLabel, t } from "$lib/i18n.svelte";
   import { saves, type SaveBackup, type SaveFolder } from "$lib/saves";
 
   let { run, busy }: { run: Runner; busy: boolean } = $props();
@@ -14,6 +14,8 @@
   const multipleAccounts = $derived(
     new Set([...(folders ?? []).map((f) => f.account), ...backups.map((b) => b.account)]).size > 1,
   );
+
+  const label = (b: SaveBackup) => storedLabel(b.label_key, b.label_args, b.label);
 
   function size(bytes: number): string {
     if (bytes < 1024 * 1024) return formatNumber(Math.max(1, Math.round(bytes / 1024))) + " KB";
@@ -35,7 +37,7 @@
   }
 
   async function restore(b: SaveBackup) {
-    const ok = await ask(t("saves.restoreConfirm", { date: formatDate(b.created), label: b.label }), {
+    const ok = await ask(t("saves.restoreConfirm", { date: formatDate(b.created), label: label(b) }), {
       title: t("saves.restoreTitle"),
       kind: "warning",
     });
@@ -100,7 +102,7 @@
         <li>
           <div>
             <strong>{formatDate(b.created)}</strong>
-            <span class="muted">· {b.label}</span>
+            <span class="muted">· {label(b)}</span>
             <div class="muted small">
               {t("saves.files", { count: b.files.length })} · {size(b.size)}{multipleAccounts
                 ? " · " + t("saves.account", { account: b.account })

@@ -7,6 +7,7 @@ pub mod components;
 pub mod display;
 pub mod error;
 pub mod game;
+pub mod i18n;
 pub mod ini;
 pub mod linux;
 pub mod rsmods;

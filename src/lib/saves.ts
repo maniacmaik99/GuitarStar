@@ -14,7 +14,10 @@ export interface SaveFolder {
 export interface SaveBackup {
   id: string;
   created: number;
+  /** Text in the language at creation time; shown when `label_key` is unknown. */
   label: string;
+  label_key?: string;
+  label_args?: Record<string, string>;
   account: string;
   automatic: boolean;
   source: string;
