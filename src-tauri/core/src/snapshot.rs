@@ -127,6 +127,19 @@ impl SnapshotStore {
         Ok(state)
     }
 
+    /// The saved copy of `rel` from before GuitarStar's first change to it,
+    /// if that change found the file present.
+    pub fn original_copy(&self, rel: &str) -> Result<Option<PathBuf>> {
+        let rel_norm = rel.replace('\\', "/");
+        for snap in self.list()?.iter().rev() {
+            if let Some(f) = snap.files.iter().find(|f| f.path.eq_ignore_ascii_case(&rel_norm)) {
+                let path = self.root.join(&snap.id).join("files").join(checked_relative(&f.path)?);
+                return Ok(f.existed.then_some(path));
+            }
+        }
+        Ok(None)
+    }
+
     /// Returns the folder to the state before the first snapshot.
     pub fn restore_original(&self, game_dir: &Path) -> Result<Option<serde_json::Value>> {
         match self.list()?.last() {

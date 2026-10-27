@@ -170,8 +170,24 @@
     {:else}
       <span class="badge">nicht installiert</span>
     {/if}
+    {#if rsmods?.cache_modified}
+      <span class="badge ok">Spieldatei-Mods aktiv (z. B. Fast Load)</span>
+    {/if}
     <span class="badge">optional</span>
   </div>
+  {#if rsmods?.installed}
+    <p class="small">
+      {#if rsmods.cache_modified === true}
+        cache.psarc ist gegenüber dem gesicherten Original verändert – Fast Load oder ein anderer „Set And Forget“-Mod ist
+        angewendet.
+      {:else if rsmods.cache_modified === false}
+        cache.psarc ist noch im Originalzustand: Fast Load ist nicht angewendet. In RSMods unter „Set And Forget Mods“
+        einschalten.
+      {:else}
+        Ob Fast Load aktiv ist, lässt sich nicht prüfen: Es gibt keine von GuitarStar gesicherte Original-cache.psarc.
+      {/if}
+    </p>
+  {/if}
   <p class="muted">
     Große Mod-Sammlung der Community: <strong>Fast Load</strong> (überspringt die Intro-Logos beim Start), eigene
     Songlisten, Songs ohne Neustart neu laden, Riff Repeater über 100 %, Lautstärke per Hotkey und mehr. Eingestellt

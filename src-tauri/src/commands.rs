@@ -502,8 +502,9 @@ pub async fn install_cdlc_enabler(app: tauri::AppHandle, ctx: State<'_, Ctx>) ->
 }
 
 #[tauri::command]
-pub fn rsmods_status(ctx: State<'_, Ctx>) -> Result<rsmods::RsModsStatus> {
-    Ok(rsmods::status(&ctx.game_dir()?))
+pub async fn rsmods_status(ctx: State<'_, Ctx>) -> Result<rsmods::RsModsStatus> {
+    let original = ctx.snapshots().original_copy("cache.psarc")?;
+    Ok(rsmods::status(&ctx.game_dir()?, original.as_deref()))
 }
 
 /// Downloads the newest RSMods installer from GitHub and starts it, after
@@ -534,7 +535,7 @@ pub async fn install_rsmods(app: tauri::AppHandle, ctx: State<'_, Ctx>) -> Resul
 #[tauri::command]
 pub fn open_rsmods_gui(app: tauri::AppHandle, ctx: State<'_, Ctx>) -> Result<()> {
     use tauri_plugin_opener::OpenerExt;
-    let gui = rsmods::status(&ctx.game_dir()?)
+    let gui = rsmods::status(&ctx.game_dir()?, None)
         .gui
         .ok_or_else(|| AppError::msg("Die RSMods-Oberfläche wurde im Spielordner nicht gefunden."))?;
     app.opener()

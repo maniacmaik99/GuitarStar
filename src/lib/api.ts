@@ -164,6 +164,7 @@ export interface OutputDevice {
 export interface RsModsStatus {
   installed: boolean;
   gui: string | null;
+  cache_modified: boolean | null;
 }
 
 /** An area of the main window in CSS pixels. */
